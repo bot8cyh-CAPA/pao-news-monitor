@@ -12,7 +12,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-from . import email_inbox, news_search, websites
+from . import browser, email_inbox, news_search, websites
 from .common import iso, load_paos, log, now_utc
 from .store import get_store
 
@@ -73,6 +73,31 @@ def health_row(res, prev, new_count, now):
     )
 
 
+def retry_in_browser(results, paos_by_id):
+    """Second chance for websites that blocked us or need JavaScript."""
+    todo = [i for i, r in enumerate(results) if r.source == "website" and r.needs_browser]
+    if not todo:
+        return
+    if not browser.available():
+        for i in todo:
+            results[i].message += " (real-browser retry not available: Playwright not installed)"
+        return
+    try:
+        with browser.Browser() as b:
+            for i in todo:
+                old = results[i]
+                new = websites.collect(paos_by_id[old.pao_id], fetcher=b.fetch, browser_mode=True)
+                if new.items:
+                    new.message = "Read with a real browser. " + new.message
+                    results[i] = new
+                else:
+                    old.message += f" | Real browser also failed: {new.message}"
+    except Exception as e:  # noqa: BLE001
+        log.warning("browser retry failed: %s", e)
+        for i in todo:
+            results[i].message += f" (real-browser retry crashed: {type(e).__name__})"
+
+
 def run(only=None, sources=None, dry_run=False, workers=8):
     started = now_utc()
     sources = sources or ALL_SOURCES
@@ -101,6 +126,8 @@ def run(only=None, sources=None, dry_run=False, workers=8):
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for out in pool.map(one, paos):
             results.extend(out)
+
+    retry_in_browser(results, {p.id: p for p in paos})
 
     email_items = []
     if "email" in sources:

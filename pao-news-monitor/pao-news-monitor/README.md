@@ -95,7 +95,7 @@ All of these are edits to **`config/paos.csv`**. Open it in GitHub, click the pe
 **Send to Claude instead** if a site needs JavaScript to show its news (the health note says so), a whole source keeps failing for every PAO, or anything involving the code itself. Include the error text from the Actions run.
 
 ## Known limits
-- Some sites only show their news with JavaScript, and the collector can't read those yet. They're flagged amber.
+- Sites that block automated visitors or only show news with JavaScript are retried in a real (headless) browser. A few may still refuse, for example if they block overseas visitors (GitHub's servers are in the US). Their Google News coverage still works.
 - NewsAPI's free plan is officially for development use, and articles appear 24 hours late. Google News is the main news search; NewsAPI is just a bonus.
 - The **Translate** button uses Google Translate. Machine translation is fine for skimming, but verify before quoting.
 - Supabase's free plan pauses projects after a week with no activity. The daily collection counts as activity, so this won't happen while it's running.

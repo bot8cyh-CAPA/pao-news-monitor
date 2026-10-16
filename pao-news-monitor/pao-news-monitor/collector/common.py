@@ -18,8 +18,14 @@ PAO_FILE = ROOT / "config" / "paos.csv"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 PAO-News-Monitor/1.0"
+    "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
 )
+BROWSER_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Upgrade-Insecure-Requests": "1",
+}
 TIMEOUT = 25
 
 
@@ -77,7 +83,7 @@ def session():
     global _session
     if _session is None:
         s = requests.Session()
-        s.headers.update({"User-Agent": USER_AGENT, "Accept-Language": "en,*;q=0.5"})
+        s.headers.update(BROWSER_HEADERS)
         _session = s
     return _session
 
@@ -98,15 +104,28 @@ class FetchResult:
         return r.text
 
 
-def fetch(url, **kw):
+def _get(url, **kw):
     """GET a URL. If the site's security certificate is broken (common on
     small sites) retry without checking it - we only read public pages."""
     try:
-        return FetchResult(session().get(url, timeout=TIMEOUT, **kw))
+        return FetchResult(session().get(url, timeout=kw.pop("timeout", TIMEOUT), **kw))
     except requests.exceptions.SSLError:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             return FetchResult(session().get(url, timeout=TIMEOUT, verify=False, **kw), insecure=True)
+
+
+def fetch(url, **kw):
+    """Like _get, but for old http:// addresses try https:// first -
+    many sites no longer answer on plain http."""
+    if url.startswith("http://"):
+        try:
+            r = _get("https://" + url[7:], timeout=15, **kw)
+            if r.status < 400:
+                return r
+        except requests.exceptions.RequestException:
+            pass
+    return _get(url, **kw)
 
 
 # ---------- ids, urls, dates ----------
@@ -128,6 +147,8 @@ def make_id(*parts):
 def base_domain(url_or_host):
     host = urlsplit(url_or_host).netloc if "//" in url_or_host else url_or_host
     host = host.lower().split(":")[0].removeprefix("www.")
+    if re.fullmatch(r"[\d.]+", host):  # bare IP address
+        return host
     parts = host.split(".")
     # keep 3 labels for things like icmab.gov.bd / sia.org.ws / cpaaustralia.com.au
     if len(parts) >= 3 and len(parts[-1]) == 2 and parts[-2] in ("com", "org", "gov", "edu", "net", "or", "co", "ac"):
@@ -216,3 +237,4 @@ class SourceResult:
     ok: bool = True
     message: str = ""
     skipped: bool = False
+    needs_browser: bool = False   # website blocked us or needs JavaScript: retry in a real browser

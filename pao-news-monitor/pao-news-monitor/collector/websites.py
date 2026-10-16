@@ -51,16 +51,18 @@ MAX_NEWS_PAGES = 3
 _CJK = re.compile(r"[぀-ヿ㐀-鿿가-힯]")
 
 
-def _title_ok(text):
+def _title_ok(text, relaxed=False):
     if not text:
         return False
     if _CJK.search(text):
-        return len(text) >= 5
+        return len(text) >= (6 if relaxed else 5)
+    if relaxed:  # no URL hint to lean on, so ask for a more headline-like title
+        return len(text) >= 25 and len(text.split()) >= 4
     return len(text) >= 18 and len(text.split()) >= 3
 
 
 def _same_site(url, site_domain):
-    host = urlsplit(url).netloc.lower()
+    host = (urlsplit(url).hostname or "").lower()
     return bool(host) and (host.removeprefix("www.") == site_domain or host.endswith("." + site_domain))
 
 
@@ -110,7 +112,10 @@ def find_news_pages(soup, base_url, site_domain):
     return found[:MAX_NEWS_PAGES]
 
 
-def extract_links(html, page_url, pao, site_domain, selector=""):
+def extract_links(html, page_url, pao, site_domain, selector="", relaxed=False):
+    """Collect article-looking links. Strict mode wants a news-like URL
+    (dates, ids, 'news', .pdf...). Relaxed mode drops that and relies on
+    headline-like link text instead - used when strict finds almost nothing."""
     soup = BeautifulSoup(html, "lxml")
     for bad in soup(["script", "style", "noscript", "header", "footer", "nav"]):
         if not selector:
@@ -130,9 +135,9 @@ def extract_links(html, page_url, pao, site_domain, selector=""):
         if not (_same_site(url, site_domain) or is_pdf):
             continue
         title = clean(a.get_text(" ")) or clean(a.get("title"))
-        if not selector and not _title_ok(title):
+        if not selector and not _title_ok(title, relaxed):
             continue
-        if not selector and not ARTICLE_HINT.search(url) and not _CJK.search(title):
+        if not selector and not relaxed and not ARTICLE_HINT.search(url) and not _CJK.search(title):
             continue
         key = normalize_url(url)
         if key in seen or key == normalize_url(page_url):
@@ -149,7 +154,14 @@ def extract_links(html, page_url, pao, site_domain, selector=""):
     return items
 
 
-def collect(pao):
+BLOCKED_STATUSES = {401, 403, 406, 429, 503}
+MIN_STRICT_LINKS = 3
+
+
+def collect(pao, fetcher=None, browser_mode=False):
+    """fetcher: how pages are downloaded - plain requests by default, or a
+    real browser (browser.py) for sites that block bots or need JavaScript."""
+    fetcher = fetcher or fetch
     res = SourceResult(pao.id, SOURCE)
     if not pao.website and not pao.news_url and not pao.feed_url:
         res.skipped, res.message = True, "No website listed"
@@ -157,18 +169,26 @@ def collect(pao):
     notes = []
     try:
         # 1. explicit feed
-        for feed_url in pao.split(pao.feed_url):
-            r = fetch(feed_url)
-            res.items += parse_feed(r.content, pao, r.url)
-        if res.items:
-            res.message = f"Feed: {len(res.items)} entries"
-            return res
+        if not browser_mode:
+            for feed_url in pao.split(pao.feed_url):
+                r = fetch(feed_url)
+                res.items += parse_feed(r.content, pao, r.url)
+            if res.items:
+                res.message = f"Feed: {len(res.items)} entries"
+                return res
 
         home_url = pao.website or pao.split(pao.news_url)[0]
-        home = fetch(home_url)
+        try:
+            home = fetcher(home_url)
+        except Exception as e:  # noqa: BLE001  (timeouts, refused connections)
+            res.ok, res.needs_browser = False, not browser_mode
+            res.message = f"Website not reachable ({type(e).__name__}): {clean(str(e), 150)}"
+            return res
         if home.status >= 400:
             res.ok = False
-            res.message = f"Website returned error {home.status}"
+            res.needs_browser = not browser_mode and (home.status in BLOCKED_STATUSES)
+            hint = " (site blocks automated visitors)" if home.status in BLOCKED_STATUSES else ""
+            res.message = f"Website returned error {home.status}{hint}"
             return res
         if home.insecure:
             notes.append("site's security certificate is broken (read anyway)")
@@ -176,9 +196,10 @@ def collect(pao):
             notes.append(f"website now redirects to {urlsplit(home.url).netloc} - update the website column")
         site_domain = base_domain(home.url)
         soup = BeautifulSoup(home.text, "lxml")
+        visible_text = len(clean(soup.get_text(" ")))
 
         # 2. advertised feed
-        if not pao.link_selector:
+        if not pao.link_selector and not browser_mode:
             for feed_url in find_feed_links(soup, home.url)[:2]:
                 try:
                     r = fetch(feed_url)
@@ -195,32 +216,47 @@ def collect(pao):
                 return res
 
         # 3. news pages
-        pages = pao.split(pao.news_url) or find_news_pages(soup, home.url, site_domain)
-        scanned = []
+        explicit = pao.split(pao.news_url)
+        pages = explicit or find_news_pages(soup, home.url, site_domain)
+        fetched = []  # (url, html)
         for page_url in pages:
             try:
-                r = fetch(page_url)
+                r = fetcher(page_url)
                 if r.status >= 400:
-                    notes.append(f"news page error {r.status}: {page_url}")
+                    # a page we guessed can be a dead menu link - only flag pages you set yourself
+                    notes.append(f"news page error {r.status}: {page_url}" if explicit
+                                 else f"skipped a dead link ({r.status})")
                     continue
-                res.items += extract_links(r.text, r.url, pao, site_domain, pao.link_selector)
-                scanned.append(page_url)
+                fetched.append((r.url, r.text))
             except Exception as e:  # noqa: BLE001
                 notes.append(f"news page failed ({type(e).__name__}): {page_url}")
-        # homepage itself often lists the latest news
-        res.items += extract_links(home.text, home.url, pao, site_domain, pao.link_selector)
+        fetched.append((home.url, home.text))  # homepage itself often lists the latest news
 
-        uniq = {}
-        for it in res.items:
-            uniq.setdefault(it.id, it)
-        res.items = list(uniq.values())
+        def gather(relaxed):
+            out = {}
+            for url, html in fetched:
+                for it in extract_links(html, url, pao, site_domain, pao.link_selector, relaxed):
+                    out.setdefault(it.id, it)
+            return out
+
+        found = gather(relaxed=False)
+        if len(found) < MIN_STRICT_LINKS and not pao.link_selector:
+            loose = gather(relaxed=True)
+            if len(loose) > len(found):
+                notes.append("used loose link matching (review for junk links)")
+                found = {**loose, **found}
+        res.items = list(found.values())
 
         if not res.items:
-            if len(home.text) < 3000 or "<noscript" in home.text.lower():
-                notes.append("no links found - site may need JavaScript to show content")
+            if visible_text < 800:
+                notes.append("page is nearly empty - the site needs JavaScript")
+            elif browser_mode:
+                notes.append("no article links found even in a real browser - set news_url (or link_selector) in paos.csv")
             else:
                 notes.append("no article links found - set news_url (or link_selector) in paos.csv")
-        pages_note = f"Scanned {len(scanned)} news page(s) + homepage" if scanned else "Scanned homepage only (no news page found)"
+            res.needs_browser = not browser_mode
+        n_news = len(fetched) - 1
+        pages_note = f"Scanned {n_news} news page(s) + homepage" if n_news else "Scanned homepage only (no news page found)"
         res.message = "; ".join([pages_note] + notes)
     except Exception as e:  # noqa: BLE001
         res.ok = False
