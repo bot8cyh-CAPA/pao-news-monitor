@@ -20,7 +20,7 @@ concurrency:
 
 defaults:
   run:
-    working-directory: pao-news-monitor
+    working-directory: pao-news-monitor/pao-news-monitor
 
 jobs:
   collect:
