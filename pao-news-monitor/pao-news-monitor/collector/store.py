@@ -11,7 +11,8 @@ class SupabaseStore:
 
     def __init__(self, url, key):
         self.base = url.rstrip("/") + "/rest/v1"
-        self.headers = {"apikey": key, "Content-Type": "application/json"}
+        # Own User-Agent: Supabase refuses secret keys from anything that looks like a browser
+        self.headers = {"apikey": key, "Content-Type": "application/json", "User-Agent": "pao-news-monitor/1.0"}
         if key.startswith("eyJ"):  # legacy JWT-style key
             self.headers["Authorization"] = f"Bearer {key}"
 
