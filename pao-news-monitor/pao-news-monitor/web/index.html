@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PAO News Monitor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e5a57'/><path d='M8 10h16M8 16h16M8 22h10' stroke='white' stroke-width='3' stroke-linecap='round'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="login" class="login" hidden>
+    <form id="login-form" class="login-card">
+      <h1>PAO News Monitor</h1>
+      <p>Sign in with your work email. We'll send you a sign-in link.</p>
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" required autocomplete="email" placeholder="you@example.org">
+      <button type="submit" class="btn primary">Send sign-in link</button>
+      <p id="login-msg" class="login-msg" role="status"></p>
+    </form>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true"></span>
+        <div>
+          <h1>PAO News Monitor</h1>
+          <p id="last-run" class="muted small"></p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span id="inbox-status" class="chip"></span>
+        <button id="refresh" class="btn ghost" type="button">Refresh</button>
+        <button id="export" class="btn" type="button">Export CSV</button>
+        <span id="user" class="muted small"></span>
+        <button id="signout" class="btn ghost" type="button">Sign out</button>
+      </div>
+    </header>
+    <div id="demo-banner" class="demo-banner" hidden>
+      Demo mode with sample data. Fill in <code>web/config.js</code> to connect your database.
+    </div>
+
+    <div class="filters" role="search">
+      <label>Period
+        <select id="f-period">
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last 12 months</option>
+          <option value="all">All time</option>
+        </select>
+      </label>
+      <label>Show
+        <select id="f-status">
+          <option value="hide_not" selected>All except not relevant</option>
+          <option value="unreviewed">Unreviewed only</option>
+          <option value="relevant">Relevant only</option>
+          <option value="not_relevant">Not relevant only</option>
+          <option value="all">Everything</option>
+        </select>
+      </label>
+      <fieldset class="sources">
+        <legend class="sr-only">Sources</legend>
+        <label><input type="checkbox" name="src" value="website" checked> Websites</label>
+        <label><input type="checkbox" name="src" value="google_news" checked> Google News</label>
+        <label><input type="checkbox" name="src" value="newsapi" checked> NewsAPI</label>
+        <label><input type="checkbox" name="src" value="email" checked> Email</label>
+        <label><input type="checkbox" name="src" value="manual" checked> Added by team</label>
+      </fieldset>
+      <label class="check"><input type="checkbox" id="f-baseline"> Include first-scan links</label>
+      <input id="f-search" type="search" placeholder="Search titles, notes, categories…" aria-label="Search">
+      <select id="jump" class="jump" aria-label="Jump to PAO"></select>
+    </div>
+
+    <div class="layout">
+      <nav id="sidebar" class="sidebar" aria-label="PAOs"></nav>
+      <main id="main" class="main"></main>
+    </div>
+  </div>
+
+  <dialog id="add-dialog">
+    <form method="dialog" id="add-form" class="add-form">
+      <h2>Add item for <span id="add-pao-name"></span></h2>
+      <p class="muted small">For things your team found elsewhere, e.g. on LinkedIn or in a newsletter.</p>
+      <label>Title <input name="title" required maxlength="300"></label>
+      <label>Link <input name="url" type="url" placeholder="https://"></label>
+      <label>Date <input name="date" type="date"></label>
+      <label>Notes <textarea name="notes" rows="3"></textarea></label>
+      <div class="dialog-actions">
+        <button value="cancel" formnovalidate class="btn ghost">Cancel</button>
+        <button value="save" class="btn primary">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
