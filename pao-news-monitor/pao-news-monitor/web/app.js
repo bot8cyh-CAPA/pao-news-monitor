@@ -153,7 +153,7 @@
     if (f.status === "relevant" && it.relevance !== "relevant") return false;
     if (f.status === "not_relevant" && it.relevance !== "not_relevant") return false;
     if (f.q) {
-      const hay = `${it.title} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
+      const hay = `${it.title} ${translations[it.id] || ""} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
       if (!hay.includes(f.q)) return false;
     }
     return true;
@@ -181,6 +181,27 @@
   }
   const realSnippet = (it) => (it.snippet && !it.snippet.startsWith("Search: ") && it.source !== "page_watch" ? it.snippet : "");
   // Google News links are Google redirects that its page translator refuses, so translate the text instead
+  // ---- headline translation in place (Google Translate) ----
+  const TR_KEY = "pao-news-translations";
+  const translations = (() => { try { return JSON.parse(localStorage.getItem(TR_KEY) || "{}"); } catch { return {}; } })();
+  const showingEnglish = new Set();
+  async function translateTitle(it) {
+    if (translations[it.id]) return translations[it.id];
+    const url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=" + encodeURIComponent(it.title);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Google Translate returned " + res.status);
+    const data = await res.json();
+    const text = (data[0] || []).map((seg) => seg[0]).join("").trim();
+    if (!text) throw new Error("no translation returned");
+    translations[it.id] = text;
+    try {
+      const keys = Object.keys(translations);
+      if (keys.length > 3000) delete translations[keys[0]];
+      localStorage.setItem(TR_KEY, JSON.stringify(translations));
+    } catch { /* private mode / storage full: keep in memory only */ }
+    return text;
+  }
+  const shownTitle = (it) => (showingEnglish.has(it.id) && translations[it.id]) || it.title;
   const textTranslateUrl = (it) =>
     `https://translate.google.com/?sl=auto&tl=en&op=translate&text=${encodeURIComponent((it.title + "\n\n" + realSnippet(it)).trim().slice(0, 4000))}`;
   const pageTranslateUrl = (url) => `https://translate.google.com/translate?sl=auto&tl=en&u=${encodeURIComponent(url)}`;
@@ -276,7 +297,7 @@
         ${it.source_name ? `<span class="muted">${esc(it.source_name)}</span>` : ""}
         ${it.is_baseline ? `<span class="tag" title="Found on the first scan of this site, may be old">first scan</span>` : ""}
       </div>
-      <h4>${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : esc(it.title)}</h4>
+      <h4${showingEnglish.has(it.id) ? ` title="Original: ${esc(it.title)}"` : ""}>${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(shownTitle(it))}</a>` : esc(shownTitle(it))}</h4>
       ${realSnippet(it) ? `<p class="snippet">${esc(it.snippet)}</p>` : ""}
       ${it.source === "page_watch" && it.snippet ? `<p class="snippet diff">${esc(it.snippet)}</p><p class="muted small">Check the page before updating your records - a layout change can look like a new name.</p>` : ""}
       ${it.snippet && it.snippet.startsWith("Search: ") ? `<p class="muted small">Found by ${esc(it.snippet.toLowerCase())}</p>` : ""}
@@ -290,7 +311,7 @@
         <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category">
         <input class="notes" value="${esc(it.notes || "")}" placeholder="Notes" aria-label="Notes">
         ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type">${["news", "events", "publications"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
-        ${nonEnglish(it) ? `<a class="link small" href="${esc(textTranslateUrl(it))}" target="_blank" rel="noopener" title="Translate the headline">Translate</a>` : ""}
+        ${nonEnglish(it) ? `<button class="link small" type="button" data-translate="${esc(it.id)}" title="Show the headline in English (Google Translate)">${showingEnglish.has(it.id) ? "Show original" : "Translate"}</button>` : ""}
         ${nonEnglish(it) && canTranslatePage(it) ? `<a class="link small" href="${esc(pageTranslateUrl(it.url))}" target="_blank" rel="noopener" title="Open the whole page translated">Translate page</a>` : ""}
         ${reviewed}
       </div>
@@ -365,6 +386,23 @@
       }
       const add = e.target.closest("[data-add]");
       if (add) return openAdd(add.dataset.add);
+      const tr = e.target.closest("[data-translate]");
+      if (tr) {
+        const it = state.items.find((i) => i.id === tr.dataset.translate);
+        if (showingEnglish.has(it.id)) { showingEnglish.delete(it.id); return render(); }
+        tr.textContent = "Translating…"; tr.disabled = true;
+        try {
+          await translateTitle(it);
+          showingEnglish.add(it.id);
+          render();
+        } catch (err) {
+          // Google refused (rare): fall back to opening Google Translate in a new tab
+          tr.textContent = "Translate"; tr.disabled = false;
+          toast("Couldn't translate here (" + err.message + ") - opening Google Translate instead", true);
+          window.open(textTranslateUrl(it), "_blank", "noopener");
+        }
+        return;
+      }
       const more = e.target.closest("[data-content]");
       if (more) {
         const pre = more.nextElementSibling;
@@ -431,11 +469,11 @@
     const paoById = new Map(state.paos.map((p) => [p.id, p]));
     const rows = state.items.filter((it) => paoById.has(it.pao_id) && visible(it, f, since))
       .sort((a, b) => (paoById.get(a.pao_id).sort_order - paoById.get(b.pao_id).sort_order) || (itemDate(b) || "").localeCompare(itemDate(a) || ""));
-    const head = ["PAO", "Organisation", "Jurisdiction", "Date", "Type", "Source", "Outlet / sender", "Title", "Link", "Relevance", "Category", "Notes", "Reviewed by"];
+    const head = ["PAO", "Organisation", "Jurisdiction", "Date", "Type", "Source", "Outlet / sender", "Title", "Title (English)", "Link", "Relevance", "Category", "Notes", "Reviewed by"];
     const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const lines = [head.map(cell).join(",")].concat(rows.map((it) => {
       const p = paoById.get(it.pao_id);
-      return [p.abbr, p.name, p.jurisdiction, (itemDate(it) || "").slice(0, 10), KIND_LABEL[kindOf(it)], SOURCE_LABEL[it.source], it.source_name, it.title, it.url,
+      return [p.abbr, p.name, p.jurisdiction, (itemDate(it) || "").slice(0, 10), KIND_LABEL[kindOf(it)], SOURCE_LABEL[it.source], it.source_name, it.title, translations[it.id] || "", it.url,
         it.relevance === "relevant" ? "Relevant" : it.relevance === "not_relevant" ? "Not relevant" : "", it.category, it.notes, it.reviewed_by].map(cell).join(",");
     }));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
