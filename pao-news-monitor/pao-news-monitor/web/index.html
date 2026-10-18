@@ -104,6 +104,27 @@
 
       <div class="panel">
         <div class="admin-head">
+          <h3>Mailing list (weekly brief)</h3>
+          <span class="muted small" id="ml-count"></span>
+        </div>
+        <p class="muted small">People who get the weekly brief. It's sent from your own Outlook with everyone in BCC (recipients can't see each other). Only admins can see this list.</p>
+        <form id="ml-add" class="person-add">
+          <input name="name" placeholder="Name (optional)" aria-label="Name" style="flex:1 1 160px">
+          <input name="email" type="email" required placeholder="email@example.org" aria-label="Email">
+          <input name="organisation" placeholder="Organisation (optional)" aria-label="Organisation" style="flex:1 1 160px">
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+        <details class="ml-bulk">
+          <summary>Add many at once</summary>
+          <p class="muted small">Paste addresses from Outlook, Excel or anywhere - e.g. <code>Jane Tan &lt;jane@icai.in&gt;; bob@cpa.org</code>. Every email address found is added.</p>
+          <textarea id="ml-paste" rows="4"></textarea>
+          <button class="btn" id="ml-paste-add" type="button">Add these</button>
+        </details>
+        <div class="table-wrap"><table class="grid" id="ml-table"></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="admin-head">
           <h3>Members (PAOs)</h3>
           <div class="dialog-tools">
             <button class="btn primary" id="member-add" type="button">+ Add member</button>
@@ -238,6 +259,27 @@
     <div class="dialog-actions">
       <span class="spacer"></span>
       <button class="btn primary" id="import-save" type="button" disabled>Add to tracker</button>
+    </div>
+  </dialog>
+
+  <dialog id="send-dialog">
+    <div class="add-form">
+      <h2>Send the weekly brief</h2>
+      <p id="send-summary"></p>
+      <ol class="send-steps">
+        <li><button class="btn" id="send-copy" type="button">1. Copy the brief</button> <span class="muted small">(with formatting)</span></li>
+        <li>2. Open a new email with the list in BCC:
+          <div class="dialog-tools">
+            <a class="btn primary" id="send-owa" target="_blank" rel="noopener">Outlook on the web</a>
+            <a class="btn" id="send-mailto">Outlook app / default mail</a>
+          </div>
+          <p class="muted small" id="send-long" hidden>The list is too long to pre-fill. Click <b>Copy addresses</b> and paste them into the BCC box.</p>
+          <button class="link small" id="send-copy-bcc" type="button">Copy addresses</button>
+        </li>
+        <li>3. Paste the brief into the email body (Ctrl+V), check it, and click Send.</li>
+        <li><button class="btn" id="send-done" type="button">4. I've sent it</button> <span class="muted small">records it here so nobody sends it twice</span></li>
+      </ol>
+      <div class="dialog-actions"><button class="btn ghost" id="send-close" type="button">Close</button></div>
     </div>
   </dialog>
 

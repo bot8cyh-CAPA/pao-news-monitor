@@ -80,7 +80,8 @@
     if (!current) { t.innerHTML = ""; body.innerHTML = ""; return; }
     const meta = `<p class="muted small">Written ${new Date(current.created_at).toLocaleString()} by ${esc(current.models_used || "?")}
       · ${current.stats?.items ?? "?"} items this week${current.edited_by ? ` · edited by ${esc(current.edited_by)} ${fmt(current.edited_at)}` : ""}
-      ${current.status === "approved" ? ` · <b>approved</b> by ${esc(current.approved_by || "")} ${fmt(current.approved_at)}` : ""}</p>`;
+      ${current.status === "approved" ? ` · <b>approved</b> by ${esc(current.approved_by || "")} ${fmt(current.approved_at)}` : ""}
+      ${current.sent_at ? ` · <b>sent</b> to ${current.sent_to ?? "?"} people by ${esc(current.sent_by || "")} ${fmt(current.sent_at)}` : ""}</p>`;
     if (editing) {
       t.innerHTML = `<button class="btn primary" id="brief-save" type="button">Save</button><button class="btn ghost" id="brief-cancel" type="button">Cancel</button>`;
       body.innerHTML = meta + `<p class="muted small">Plain text with simple formatting: <code>## Heading</code>, <code>- bullet</code>, <code>**bold**</code>. Keep the [n] numbers - they link to the sources.</p>
@@ -90,6 +91,7 @@
     t.innerHTML = [
       canEdit() ? `<button class="btn" id="brief-edit" type="button">Edit</button>` : "",
       isAdmin() ? `<button class="btn ${current.status === "approved" ? "ghost" : "primary"}" id="brief-approve" type="button">${current.status === "approved" ? "Back to draft" : "Approve"}</button>` : "",
+      isAdmin() && current.status === "approved" ? `<button class="btn primary" id="brief-send" type="button">${current.sent_at ? "Send again…" : "Send to mailing list…"}</button>` : "",
       `<button class="btn ghost" id="brief-copy" type="button" title="Copy with formatting, then paste into an Outlook email">Copy for email</button>`,
       `<button class="btn ghost" id="brief-word" type="button">Download Word</button>`,
     ].join("");
@@ -138,6 +140,38 @@
     a.click(); URL.revokeObjectURL(a.href);
   }
 
+  // ---------- send to mailing list (from the user's own Outlook, everyone in BCC) ----------
+  let sendList = [];
+  const subject = () => `CAPA weekly intelligence brief: ${fmt(current.period_start)} – ${fmt(current.period_end)}`;
+  async function openSend() {
+    try { sendList = (await A.loadMailingList()).filter((m) => m.active).map((m) => m.email); }
+    catch (e) { return A.toast(/mailing_list|schema cache|does not exist/i.test(e.message) ? "Database needs updating: run supabase/update-5.sql" : e.message, true); }
+    if (!sendList.length) return A.toast("The mailing list is empty - add people on the Admin tab first", true);
+    const bcc = sendList.join(";"), subj = encodeURIComponent(subject());
+    const owa = `https://outlook.office.com/mail/deeplink/compose?bcc=${encodeURIComponent(bcc)}&subject=${subj}`;
+    const mailto = `mailto:?bcc=${encodeURIComponent(sendList.join(","))}&subject=${subj}`;
+    const tooLong = owa.length > 1900;
+    $("#send-summary").innerHTML = `To <b>${sendList.length}</b> people on the mailing list, from your own email. Subject: <i>${esc(subject())}</i>`
+      + (current.sent_at ? `<br><span class="warn-text">Already sent ${fmt(current.sent_at)} by ${esc(current.sent_by || "")}.</span>` : "");
+    $("#send-owa").href = tooLong ? `https://outlook.office.com/mail/deeplink/compose?subject=${subj}` : owa;
+    $("#send-mailto").href = tooLong ? `mailto:?subject=${subj}` : mailto;
+    $("#send-long").hidden = !tooLong;
+    $("#send-dialog").showModal();
+  }
+  $("#send-copy").addEventListener("click", copy);
+  $("#send-copy-bcc").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(sendList.join("; ")); A.toast("Addresses copied - paste into BCC"); }
+    catch { prompt("Copy these addresses into BCC:", sendList.join("; ")); }
+  });
+  $("#send-done").addEventListener("click", async () => {
+    try {
+      if (!A.DEMO) { const { error } = await A.db.rpc("mark_brief_sent", { brief_id: current.id, recipients: sendList.length }); if (error) throw error; }
+      Object.assign(current, { sent_at: new Date().toISOString(), sent_by: A.state.user?.email, sent_to: sendList.length });
+      $("#send-dialog").close(); draw(); A.toast("Recorded as sent");
+    } catch (e) { A.toast("Couldn't record: " + e.message, true); }
+  });
+  $("#send-close").addEventListener("click", () => $("#send-dialog").close());
+
   $("#brief-btn").addEventListener("click", open);
   $("#brief-back").addEventListener("click", close);
   $("#brief-view").addEventListener("click", (e) => {
@@ -153,6 +187,7 @@
     else if (id === "brief-approve") approve();
     else if (id === "brief-copy") copy();
     else if (id === "brief-word") word();
+    else if (id === "brief-send") openSend();
   });
   // leaving other views closes this one
   for (const sel of ["#admin-btn"]) document.querySelector(sel)?.addEventListener("click", () => { $("#brief-view").hidden = true; });

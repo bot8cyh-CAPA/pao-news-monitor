@@ -74,7 +74,7 @@
     document.querySelector(".filters").hidden = true;
     document.querySelector(".layout").hidden = true;
     window.scrollTo(0, 0);
-    showPeople(); showMembers();
+    showPeople(); showMembers(); showMailingList();
   }
   function closeAdmin() {
     $("#admin-view").hidden = true;
@@ -247,6 +247,78 @@
       showPeople();
     } catch (err) { A.toast("Couldn't change role: " + friendly(err), true); showPeople(); }
   });
+
+  // ================= Mailing list =================
+  let mailing = [];
+  const EMAIL_RX = /[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+  async function loadMailingList() {
+    if (A.DEMO) { mailing = A._demoMailing ||= [{ email: "boss@capa-apac.org", name: "Boss", organisation: "CAPA", active: true }]; return mailing; }
+    const { data, error } = await A.db.from("mailing_list").select("*").order("organisation", { nullsFirst: true }).order("email");
+    if (error) throw error;
+    mailing = data; return mailing;
+  }
+  async function showMailingList() {
+    $("#ml-table").innerHTML = "<tbody><tr><td>Loading…</td></tr></tbody>";
+    try {
+      await loadMailingList();
+      const on = mailing.filter((m) => m.active).length;
+      $("#ml-count").textContent = `${on} receiving${mailing.length > on ? `, ${mailing.length - on} paused` : ""}`;
+      $("#ml-table").innerHTML = mailing.length ? `<thead><tr><th>Name</th><th>Email</th><th>Organisation</th><th>Status</th><th></th></tr></thead><tbody>${mailing.map((m) => `
+        <tr class="${m.active ? "" : "inactive"}"><td>${esc(m.name || "")}</td><td>${esc(m.email)}</td><td>${esc(m.organisation || "")}</td>
+        <td>${m.active ? "Receiving" : "Paused"}</td>
+        <td class="row-tools"><button class="link small" data-ml-toggle="${esc(m.email)}" type="button">${m.active ? "Pause" : "Resume"}</button>
+          <button class="link small" data-ml-remove="${esc(m.email)}" type="button">Remove</button></td></tr>`).join("")}</tbody>`
+        : "<tbody><tr><td class='muted'>Nobody on the list yet.</td></tr></tbody>";
+    } catch (e) { $("#ml-table").innerHTML = `<tbody><tr><td class="error-box">${esc(/mailing_list|schema cache|does not exist/i.test(e.message) ? "The database needs updating: paste supabase/update-5.sql into Supabase > SQL Editor and Run." : friendly(e))}</td></tr></tbody>`; }
+  }
+  async function addToList(rows) {
+    rows = rows.filter((r) => r.email).map((r) => ({ ...r, email: r.email.toLowerCase().trim(), added_by: me(), active: true }));
+    if (!rows.length) return 0;
+    if (A.DEMO) { for (const r of rows) if (!mailing.some((m) => m.email === r.email)) mailing.push(r); return rows.length; }
+    const { data, error } = await A.db.from("mailing_list").upsert(rows, { onConflict: "email", ignoreDuplicates: true }).select("email");
+    if (error) throw error;
+    return data.length;
+  }
+  $("#ml-add").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      const n = await addToList([{ email: f.elements.email.value, name: f.elements.name.value.trim() || null, organisation: f.elements.organisation.value.trim() || null }]);
+      A.toast(n ? "Added" : "Already on the list"); f.reset(); showMailingList();
+    } catch (err) { A.toast("Couldn't add: " + friendly(err), true); }
+  });
+  $("#ml-paste-add").addEventListener("click", async () => {
+    const text = $("#ml-paste").value;
+    const rows = [];
+    for (const part of text.split(/[;\n,]+/)) {           // "Jane Tan <jane@x.org>" keeps the name
+      const emails = part.match(EMAIL_RX) || [];
+      for (const email of emails) {
+        const name = emails.length === 1 ? part.replace(EMAIL_RX, "").replace(/[<>"()]/g, "").trim() : "";
+        rows.push({ email, name: name || null, organisation: null });
+      }
+    }
+    if (!rows.length) return A.toast("No email addresses found in that text", true);
+    try { const n = await addToList(rows); A.toast(`Added ${n} (${rows.length - n} were already on the list)`); $("#ml-paste").value = ""; showMailingList(); }
+    catch (err) { A.toast("Couldn't add: " + friendly(err), true); }
+  });
+  $("#ml-table").addEventListener("click", async (e) => {
+    const t = e.target.closest("[data-ml-toggle]"), r = e.target.closest("[data-ml-remove]");
+    if (!t && !r) return;
+    const email = (t || r).dataset[t ? "mlToggle" : "mlRemove"];
+    const m = mailing.find((x) => x.email === email);
+    try {
+      if (t) {
+        if (!A.DEMO) { const { error } = await A.db.from("mailing_list").update({ active: !m.active }).eq("email", email); if (error) throw error; }
+        m.active = !m.active;
+      } else {
+        if (!confirm(`Remove ${email} from the mailing list?`)) return;
+        if (!A.DEMO) { const { error } = await A.db.from("mailing_list").delete().eq("email", email); if (error) throw error; }
+        mailing = mailing.filter((x) => x.email !== email); if (A.DEMO) A._demoMailing = mailing;
+      }
+      showMailingList();
+    } catch (err) { A.toast("Couldn't change: " + friendly(err), true); }
+  });
+  A.loadMailingList = loadMailingList;
 
   // ================= Import =================
   // Column names accepted (case-insensitive). The OCR page writes the first name of each.

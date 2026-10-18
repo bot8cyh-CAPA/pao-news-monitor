@@ -267,3 +267,11 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 .brief-doc .cite { font-size: 12px; text-decoration: none; vertical-align: super; line-height: 0; }
 #brief-text { width: 100%; min-height: 60vh; font: 13px/1.5 ui-monospace, Menlo, monospace; resize: vertical; }
 @media (max-width: 800px) { .brief-layout { grid-template-columns: 1fr; } .brief-side { position: static; } }
+
+/* ---- mailing list + send dialog ---- */
+.ml-bulk { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; }
+.ml-bulk summary { cursor: pointer; font-size: 14px; color: var(--muted); }
+.ml-bulk textarea { width: 100%; margin: 6px 0; font: inherit; font-size: 14px; }
+#send-dialog { width: min(560px, calc(100% - 32px)); }
+.send-steps { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; font-size: 14px; }
+.send-steps .dialog-tools { margin-top: 6px; }
