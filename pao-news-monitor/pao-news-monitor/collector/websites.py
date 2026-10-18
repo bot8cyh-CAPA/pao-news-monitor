@@ -274,8 +274,8 @@ def collect(pao, fetcher=None, browser_mode=False):
                 return res
             res.ok = False
             res.needs_browser = not browser_mode and (home.status in BLOCKED_STATUSES)
-            hint = " (site blocks automated visitors)" if home.status in BLOCKED_STATUSES else ""
-            res.message = f"Website returned error {home.status}{hint}"
+            res.message = (f"Blocks crawlers (error {home.status})" if home.status in BLOCKED_STATUSES
+                           else f"Website returned error {home.status}")
             return res
         if home.insecure:
             notes.append("site's security certificate is broken (read anyway)")

@@ -57,7 +57,7 @@ def test_loose_matching_finds_slug_links(monkeypatch):
 def test_blocked_site_flags_browser(monkeypatch):
     monkeypatch.setattr(websites, "fetch", lambda url, **kw: common.FetchResult(FakeResp(url, "denied", 403)))
     res = websites.collect(pao())
-    assert not res.ok and res.needs_browser and "blocks automated" in res.message
+    assert not res.ok and res.needs_browser and res.message == "Blocks crawlers (error 403)"
 
 
 def test_unreachable_site_flags_browser(monkeypatch):
@@ -81,10 +81,11 @@ def test_retry_keeps_old_result_when_browser_finds_nothing(monkeypatch):
         def fetch(self, url, **kw): return browser.PageResult(url, 403, "denied")
     monkeypatch.setattr(browser, "available", lambda: True)
     monkeypatch.setattr(browser, "Browser", FakeBrowser)
-    r = SourceResult("icai", "website", ok=False, message="Website returned error 403", needs_browser=True)
+    r = SourceResult("icai", "website", ok=False, message="Blocks crawlers (error 403)", needs_browser=True)
     results = [r]
     main.retry_in_browser(results, {"icai": pao()})
-    assert results[0] is r and "Real browser also failed" in r.message
+    assert results[0] is r
+    assert r.message == "Blocks crawlers (error 403), even a real browser. Google News still covers it."
 
 
 # ---- real headless browser against a local test site ----

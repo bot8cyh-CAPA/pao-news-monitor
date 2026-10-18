@@ -161,7 +161,12 @@ def retry_in_browser(results, paos_by_id, prev_pages=None):
                     new.message = "Read with a real browser. " + new.message
                     results[i] = new
                 else:
-                    old.message += f" | Real browser also failed: {new.message}"
+                    if old.message.startswith("Blocks crawlers") and new.message.startswith("Blocks crawlers"):
+                        old.message += ", even a real browser." + (" Google News still covers it." if pao.search_terms else "")
+                    elif old.source == "page_watch" and "error 4" in old.message:
+                        old.message = "Blocks crawlers - leadership/contact pages can't be watched."
+                    else:
+                        old.message += f" | Real browser also failed: {new.message}"
     except Exception as e:  # noqa: BLE001
         log.warning("browser retry failed: %s", e)
         for i in todo:
