@@ -155,3 +155,33 @@ def parse_json(text):
                 continue
     log.info("could not parse AI JSON: %s", t[:200])
     return None
+
+
+def check(env=None):
+    """Ping every provider that has a key with a one-line prompt; report which models answer."""
+    chain = Chain(env=env)
+    results = []
+    seen_providers = set()
+    for kind in ("smart", "fast"):
+        for spec, url, key, model in chain.chain(kind):
+            provider = spec.split(":")[0]
+            if spec in {r[0] for r in results}:
+                continue
+            one = Chain(env=env)
+            one.chain = lambda k, _s=(spec, url, key, model): [_s]
+            try:
+                text, _ = one.ask("smart", "Reply with the single word OK.", "Say OK.", max_tokens=200)
+                results.append((spec, True, text.strip()[:40]))
+                seen_providers.add(provider)
+            except AIUnavailable:
+                results.append((spec, False, "; ".join(one.log)[-200:]))
+    return results
+
+
+if __name__ == "__main__":
+    rows = check()
+    if not rows:
+        print("::error title=AI check::No AI keys found (add GEMINI_API_KEY etc. as repository secrets)")
+    for spec, ok, detail in rows:
+        level = "notice" if ok else "warning"
+        print(f"::{level} title=AI check::{'OK  ' if ok else 'FAIL'} {spec} - {detail}")

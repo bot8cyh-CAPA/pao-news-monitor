@@ -9,6 +9,10 @@ on:
         description: "How many days to cover"
         required: false
         default: "7"
+      check_ai:
+        description: "Only test the AI keys (no brief is written)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -37,11 +41,13 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # optional backups when GitHub Models runs out (add as repository secrets to enable)
+          # free AI providers, tried in order (add as repository secrets to enable)
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           DAYS: ${{ github.event.inputs.days || '7' }}
-        run: python -m collector.brief --days "$DAYS"
+          CHECK_AI: ${{ github.event.inputs.check_ai || 'false' }}
+        run: |
+          if [ "$CHECK_AI" = "true" ]; then python -m collector.ai; else python -m collector.brief --days "$DAYS"; fi

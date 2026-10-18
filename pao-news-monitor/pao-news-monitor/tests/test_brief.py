@@ -174,3 +174,15 @@ def test_duplicate_headlines_merged_and_old_drafts_replaced(tmp_path):
     store.save_brief(kept)
     store.save_brief(brief.build(store, chain=chain(), now=NOW))
     assert len(store.data["briefs"]) == 2 and store.data["briefs"][0]["edited_by"] == "me@capa"
+
+
+def test_ai_check_reports_each_model(monkeypatch):
+    calls = []
+
+    def fake_post(self, url, json=None, **kw):
+        calls.append(json["model"])
+        return answer("OK") if json["model"] == "gemini-3.8-flash" else FakeResp(429, text="quota")
+    monkeypatch.setattr(ai.requests.Session, "post", fake_post)
+    rows = ai.check(env={"GEMINI_API_KEY": "g", "AI_MODELS_SMART": "gemini:gemini-3.8-flash,gemini:x", "AI_MODELS_FAST": "gemini:x"})
+    assert ("gemini:gemini-3.8-flash", True, "OK") in rows
+    assert any(spec == "gemini:x" and not ok for spec, ok, _ in rows)
