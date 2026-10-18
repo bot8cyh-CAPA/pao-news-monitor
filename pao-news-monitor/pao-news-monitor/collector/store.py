@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 from .common import ROOT, clean, log, session
 
@@ -29,6 +30,35 @@ class SupabaseStore:
 
     def load_pao_rows(self):
         return self._req("GET", "/paos?select=*&order=sort_order").json()
+
+    # ---- weekly brief ----
+    def has_briefs(self):
+        try:
+            self._req("GET", "/briefs?select=id&limit=1")
+            self._req("GET", "/items?select=ai_summary&limit=1")
+            return True
+        except RuntimeError:
+            return False
+
+    def items_since(self, since_iso):
+        cols = "id,pao_id,source,title,url,published_at,snippet,language,is_baseline,first_seen_at,relevance,category,kind"
+        since_iso = quote(since_iso.replace("+00:00", "Z"), safe=":-.TZ")
+        rows = []
+        for start in range(0, 20000, 1000):
+            got = self._req("GET", f"/items?select={cols}&or=(first_seen_at.gte.{since_iso},published_at.gte.{since_iso})"
+                                   "&order=first_seen_at.desc", headers={"Range": f"{start}-{start + 999}"}).json()
+            rows += got
+            if len(got) < 1000:
+                break
+        return rows
+
+    def save_item_ai(self, rows):
+        for i in range(0, len(rows), 200):
+            self._req("POST", "/items?on_conflict=id", json=rows[i:i + 200],
+                      headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
+
+    def save_brief(self, row):
+        self._req("POST", "/briefs", json=row, headers={"Prefer": "return=minimal"})
 
     def schema_problems(self):
         """What's missing from the database (supabase/update-2.sql not run yet)."""
@@ -119,6 +149,22 @@ class JsonStore:
 
     def load_pao_rows(self):
         return sorted(self.data["paos"].values(), key=lambda r: r.get("sort_order") or 0)
+
+    def has_briefs(self):
+        return True
+
+    def items_since(self, since_iso):
+        return [dict(r) for r in self.data["items"].values()
+                if (r.get("first_seen_at") or "") >= since_iso or (r.get("published_at") or "") >= since_iso]
+
+    def save_item_ai(self, rows):
+        for r in rows:
+            self.data["items"].setdefault(r["id"], {}).update(r)
+        self._save()
+
+    def save_brief(self, row):
+        self.data.setdefault("briefs", []).append(row)
+        self._save()
 
     def load_pages(self):
         return {tuple(k.split("::", 2)): v for k, v in self.data["pages"].items()}

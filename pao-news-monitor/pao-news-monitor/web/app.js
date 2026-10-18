@@ -8,6 +8,7 @@
   const DEMO = !CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY;
   const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
   const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team", page_watch: "Page watch" };
+  const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
   const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", leadership: "Leadership change", contact: "Contact change" };
   const GROUP_ORDER = ["Member", "Associate", "Affiliate", "Stakeholder", "Inbox"];
   const GROUP_LABEL = { Member: "Members", Associate: "Associates", Affiliate: "Affiliates", Stakeholder: "Stakeholders", Inbox: "Inbox" };
@@ -85,14 +86,16 @@
         db.from("runs").select("*").order("id", { ascending: false }).limit(1),
       ]);
       for (const r of [paos, health, runs]) if (r.error) throw r.error;
-      let cols = "id,pao_id,source,title,url,published_at,snippet,source_name,language,is_baseline,first_seen_at,relevance,category,notes,reviewed_by,reviewed_at,kind";
+      const BASE = "id,pao_id,source,title,url,published_at,snippet,source_name,language,is_baseline,first_seen_at,relevance,category,notes,reviewed_by,reviewed_at";
+      const tries = [BASE + ",kind,ai_summary,ai_themes", BASE + ",kind", BASE];   // newer columns first; older databases fall back
+      let cols = tries.shift();
       const items = [];
       for (let from = 0; ; from += 1000) {
         let q = db.from("items").select(cols).order("first_seen_at", { ascending: false }).range(from, from + 999);
         if (sinceIso) q = q.or(`first_seen_at.gte.${sinceIso},published_at.gte.${sinceIso}`);
         const { data, error } = await q;
-        if (error && cols.endsWith(",kind") && /kind/.test(error.message)) {  // database not updated yet
-          cols = cols.slice(0, -5); from -= 1000; continue;
+        if (error && tries.length && /column|schema cache/i.test(error.message)) {  // database not updated yet
+          cols = tries.shift(); from -= 1000; continue;
         }
         if (error) throw error;
         items.push(...data);
@@ -178,7 +181,7 @@
     if (f.status === "relevant" && it.relevance !== "relevant") return false;
     if (f.status === "not_relevant" && it.relevance !== "not_relevant") return false;
     if (f.q) {
-      const hay = `${it.title} ${translations[it.id] || ""} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
+      const hay = `${it.title} ${translations[it.id] || ""} ${it.ai_summary || ""} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
       if (!hay.includes(f.q)) return false;
     }
     return true;
@@ -322,8 +325,10 @@
         ${itemDate(it) ? `<time datetime="${esc(itemDate(it))}">${fmtDate(itemDate(it))}</time>` : ""}
         ${it.source_name ? `<span class="muted">${esc(it.source_name)}</span>` : ""}
         ${it.is_baseline ? `<span class="tag" title="Found on the first scan of this site, may be old">first scan</span>` : ""}
+        ${(it.ai_themes || []).filter((t) => THEME_LABEL[t]).map((t) => `<span class="theme" title="Theme tagged by AI">${THEME_LABEL[t]}</span>`).join("")}
       </div>
       <h4${showingEnglish.has(it.id) ? ` title="Original: ${esc(it.title)}"` : ""}>${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(shownTitle(it))}</a>` : esc(shownTitle(it))}</h4>
+      ${it.ai_summary && nonEnglish(it) && !showingEnglish.has(it.id) ? `<p class="muted small ai-sum" title="One-line summary written by AI for the weekly brief">In English: ${esc(it.ai_summary)}</p>` : ""}
       ${realSnippet(it) ? `<p class="snippet">${esc(it.snippet)}</p>` : ""}
       ${it.source === "page_watch" && it.snippet ? `<p class="snippet diff">${esc(it.snippet)}</p><p class="muted small">Check the page before updating your records - a layout change can look like a new name.</p>` : ""}
       ${it.snippet && it.snippet.startsWith("Search: ") ? `<p class="muted small">Found by ${esc(it.snippet.toLowerCase())}</p>` : ""}

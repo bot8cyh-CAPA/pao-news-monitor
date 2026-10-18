@@ -76,8 +76,36 @@ for p in paos:
 health.append(dict(pao_id="_inbox", source="email", status="ok", message="Read 4 email(s)", last_run_at=d(0.1),
                    last_success_at=d(0.1), last_new_at=d(1), items_found=4, items_new=1, consecutive_failures=0))
 
+# a sample weekly brief, built by the real brief code with a stand-in AI
+from collector import ai as ai_mod, brief as brief_mod  # noqa: E402
+from collector.store import JsonStore  # noqa: E402
+import tempfile  # noqa: E402
+
+
+class _SampleAI(ai_mod.Chain):
+    def ask(self, kind, system, user, **kw):
+        self.used.append("sample:demo")
+        if kind == "fast":
+            n = sum(1 for line in user.splitlines() if line[:1].isdigit())
+            return json.dumps([{"n": i, "summary": "SAMPLE summary", "themes": ["ai_digital"] if i % 3 == 0 else ["other"],
+                                "importance": 2} for i in range(1, n + 1)]), "sample:demo"
+        return ("## Headlines\n- SAMPLE - ICAI's vice-president changed on its website [1]\n"
+                "- SAMPLE - The Chartered Accountant Journal October issue is out [2]\n\n## By theme\n### AI & digitalisation\n"
+                "**What happened**\n- SAMPLE - JICPA elected a new president [5]\n**Regional implications**\n- SAMPLE interpretation.\n"
+                "**Suggested CAPA actions**\n- SAMPLE - send congratulations to JICPA's new president.\n\n### Talent attraction & retention\nNo items this week.\n\n"
+                "## Leadership changes\n- SAMPLE - ICAI: new Vice-President [1]\n\n## Upcoming events and deadlines\n- SAMPLE - ICAI National Conference [3]"), "sample:demo"
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    st = JsonStore(Path(tmp) / "x.json")
+    st.data["paos"] = {p["id"]: p for p in paos}
+    st.data["items"] = {i["id"]: dict(i) for i in items}
+    b = brief_mod.build(st, days=7, chain=_SampleAI(env={}), now=now)
+    b["id"] = 1
+    briefs = [b]
+
 out = Path(__file__).resolve().parent.parent / "web" / "demo-data.json"
-out.write_text(json.dumps({"paos": paos, "items": items, "health": health,
+out.write_text(json.dumps({"paos": paos, "items": items, "health": health, "briefs": briefs,
                            "runs": [{"started_at": d(0.11), "finished_at": d(0.1), "summary": {"new": 4}}]},
                           ensure_ascii=False, indent=1), encoding="utf-8")
 print("wrote", out, len(items), "items")

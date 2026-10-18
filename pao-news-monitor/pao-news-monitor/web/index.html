@@ -54,6 +54,7 @@
       <div class="top-actions">
         <span id="inbox-status" class="chip"></span>
         <button id="refresh" class="btn ghost" type="button">Refresh</button>
+        <button id="brief-btn" class="btn ghost" type="button">Weekly brief</button>
         <a id="ocr-link" class="btn ghost edit-only" href="ocr.html">Screenshots (OCR)</a>
         <button id="import-btn" class="btn ghost edit-only" type="button">Import</button>
         <button id="admin-btn" class="btn ghost admin-only" type="button">Admin</button>
@@ -66,6 +67,21 @@
     <div id="demo-banner" class="demo-banner" hidden>
       Demo mode with sample data. Fill in <code>web/config.js</code> to connect your database.
     </div>
+
+    <section id="brief-view" class="brief-view" hidden>
+      <div class="admin-head">
+        <h2>Weekly brief</h2>
+        <button class="btn" id="brief-back" type="button">← Back to news</button>
+      </div>
+      <div class="brief-layout">
+        <aside class="panel brief-side"><h3>Briefs</h3><ol id="brief-list" class="brief-list"></ol>
+          <p class="muted small">Written every Monday morning from the past week's items (except ones marked Not relevant). Team members can edit; admins approve.</p></aside>
+        <div class="panel brief-main">
+          <div class="brief-tools" id="brief-tools"></div>
+          <div id="brief-body"></div>
+        </div>
+      </div>
+    </section>
 
     <section id="admin-view" class="admin-view" hidden>
       <div class="admin-head">
@@ -230,5 +246,6 @@
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script src="manage.js"></script>
+  <script src="brief.js"></script>
 </body>
 </html>

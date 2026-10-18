@@ -16,7 +16,7 @@ Every morning this tool checks the CAPA member bodies and stakeholders for news,
 LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
 
 ### Updating from an earlier version
-If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`.)
+If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`.)
 
 ## Sign-in (email + password)
 People sign in with their email and a password. Email is only used to confirm a new account and for "Forgot password".
@@ -29,6 +29,17 @@ People sign in with their email and a password. Email is only used to confirm a 
 
 **Adding someone:** Admin tab → type their email, pick a role → **Give access**. Tell them to open the tracker and click **First time here**, choose a password, and click the confirmation email once. Anyone not on the Admin tab's list can't sign up, and has no access even if they somehow had an account.
 **Forgot password / used to sign in with email links:** the **Forgot password** tab emails a link to set one. Signed-in people can change it with the **Password** button.
+
+## Weekly brief (AI)
+Every **Monday at about 7:45am** (Malaysia time) a separate job reads the past week's items (everything except **Not relevant** and hidden first-scan links), and:
+1. tags each item with themes (AI & digitalisation, Talent, Sustainability, Ethics & standards) and a one-line English summary. These also appear on the news cards.
+2. writes a draft brief: **Headlines**, each **theme** with *what happened*, *regional implications* and *suggested CAPA actions*, **Leadership changes** (for congratulation letters), **Upcoming events and deadlines**, **No news found this week**, and a numbered **Sources** list. Every fact links to its source item.
+
+Open it with **Weekly brief** at the top of the tracker. Team members can **Edit** it; an admin **Approves** it. **Copy for email** copies it with formatting for an Outlook email; **Download Word** gives a .doc file. Nothing is sent automatically. To make one now: **Actions → Weekly brief → Run workflow**.
+
+**AI used (free):** GitHub Models first (no key needed). When a model's free quota runs out it moves to the next model, then to these optional backups if you add their keys as repository secrets: `GEMINI_API_KEY` (Google AI Studio), `CF_ACCOUNT_ID` + `CF_AI_TOKEN` (Cloudflare Workers AI), `OPENROUTER_API_KEY`. If no model is available, the brief is saved as a plain list of the week's items instead. The brief shows which model wrote it.
+
+Setup: run `supabase/update-4.sql` once.
 
 ## Roles
 | Role | Can |

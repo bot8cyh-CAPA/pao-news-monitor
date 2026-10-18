@@ -1,0 +1,46 @@
+name: Weekly brief
+
+on:
+  schedule:
+    - cron: "47 23 * * 0"   # every Monday at 07:47 Malaysia time (Sunday 23:47 UTC)
+  workflow_dispatch:         # "Run workflow" button on the Actions tab
+    inputs:
+      days:
+        description: "How many days to cover"
+        required: false
+        default: "7"
+
+permissions:
+  contents: read
+  models: read               # lets the built-in GITHUB_TOKEN use GitHub Models (free AI)
+
+concurrency:
+  group: brief
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: pao-news-monitor/pao-news-monitor
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Write the brief
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # optional backups when GitHub Models runs out (add as repository secrets to enable)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          DAYS: ${{ github.event.inputs.days || '7' }}
+        run: python -m collector.brief --days "$DAYS"
