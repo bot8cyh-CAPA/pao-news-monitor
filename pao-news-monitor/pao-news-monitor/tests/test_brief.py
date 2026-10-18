@@ -92,11 +92,11 @@ def make_store(tmp_path):
     return s
 
 
-# items reach the tagger newest first; equal dates keep their order: a, b, e
+# items reach the tagger most useful first: page-watch change (e), then website items a, b
 TAGS = json.dumps([
-    {"n": 1, "summary": "ICAI launched an AI audit toolkit.", "themes": ["ai_digital"], "importance": 3, "leadership": False},
-    {"n": 2, "summary": "IESBA consults on technology ethics; comments due 30 Nov.", "themes": ["ethics_standards", "ai_digital"], "importance": 3},
-    {"n": 3, "summary": "ICAI announced a new president on its website.", "themes": ["other"], "importance": 3, "leadership": True},
+    {"n": 1, "summary": "ICAI announced a new president on its website.", "themes": ["other"], "importance": 3, "leadership": True},
+    {"n": 2, "summary": "ICAI launched an AI audit toolkit.", "themes": ["ai_digital"], "importance": 3, "leadership": False},
+    {"n": 3, "summary": "IESBA consults on technology ethics; comments due 30 Nov.", "themes": ["ethics_standards", "ai_digital"], "importance": 3},
 ])
 BRIEF = "# Title the model added\n## Headlines\n- ICAI launched an AI audit toolkit [2]\n## Sources\n[1] junk the model made up"
 
@@ -133,3 +133,21 @@ def test_brief_when_writer_fails_after_tagging(tmp_path):
     http = FakeHTTP({"m1": [answer(TAGS)], "big": [FakeResp(429, text="quota")], "m2": [FakeResp(429, text="quota")]})
     row = brief.build(store, days=7, chain=ai.Chain(env=ENV, session=http, sleep=lambda s: None), now=NOW)
     assert "This week's items by organisation" in row["content"] and row["stats"]["tagged"] == 3
+
+
+def test_unreadable_200_skips_model():
+    """A retired endpoint answering 200 'OK' must not be retried all run."""
+    class Plain(FakeResp):
+        headers = {"content-type": "text/plain"}
+    http = FakeHTTP({"m1": [Plain(200, None, text="OK")], "m2": [answer("fine")]})
+    c = ai.Chain(env=ENV, session=http, sleep=lambda s: None)
+    assert c.ask("fast", "s", "u") == ("fine", "github:m2")
+    assert c.ask("fast", "s", "u") == ("fine", "github:m2")
+    assert http.calls == ["m1", "m2", "m2"]
+
+
+def test_default_chain_uses_free_providers_with_keys():
+    c = ai.Chain(env={"GEMINI_API_KEY": "g", "CF_ACCOUNT_ID": "a", "CF_AI_TOKEN": "t"})
+    specs = [s for s, *_ in c.chain("smart")]
+    assert specs[0].startswith("gemini:") and any(s.startswith("cloudflare:") for s in specs)
+    assert not any(s.startswith(("github:", "openrouter:")) for s in specs)

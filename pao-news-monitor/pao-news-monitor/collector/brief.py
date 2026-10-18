@@ -32,7 +32,9 @@ THEMES = {
     "ethics_standards": "Ethics & standards (incl. IAASB, IESBA)",
     "other": "Other notable activity",
 }
-BATCH = 35              # items per tagging request (free models accept ~8k tokens per request)
+BATCH = 35              # items per tagging request
+MAX_TAGGED = 280        # items tagged per week, most useful first (keeps within free AI quotas)
+SOURCE_PRIORITY = {"page_watch": 0, "manual": 1, "email": 1, "website": 2, "newsapi": 3, "google_news": 4}
 MAX_IN_BRIEF = 70       # items given to the writer
 KIND_LABEL = {"news": "news", "events": "event", "publications": "publication",
               "leadership": "leadership change (website)", "contact": "contact change (website)"}
@@ -211,7 +213,10 @@ def build(store, days=7, chain=None, now=None):
     paos = {p["id"]: p for p in store.load_pao_rows()}
     items = gather(store, start)
     notes = []
-    tagged = tag(chain, items, paos, notes) if items else True
+    to_tag = sorted(items, key=lambda i: (i.get("relevance") != "relevant", SOURCE_PRIORITY.get(i.get("source"), 5)))[:MAX_TAGGED]
+    if len(items) > len(to_tag):
+        notes.append(f"{len(items)} items this week; AI-tagged the {len(to_tag)} most useful (relevant, leadership, websites and emails first)")
+    tagged = tag(chain, to_tag, paos, notes) if to_tag else True
     if tagged and any(i.get("ai_summary") for i in items):
         store.save_item_ai([
             {k: i.get(k) for k in ("id", "pao_id", "source", "title", "ai_summary", "ai_themes", "ai_importance", "ai_model")}

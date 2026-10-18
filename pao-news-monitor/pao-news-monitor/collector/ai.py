@@ -1,11 +1,12 @@
 """AI with a fallback chain: when one model runs out of free quota (or fails),
 the next one is tried. All providers speak the same (OpenAI-style) language.
 
-Order (each step only if its key is available):
-  1. GitHub Models  - free, no key needed inside GitHub Actions (GITHUB_TOKEN)
-  2. Google Gemini  - free tier, secret GEMINI_API_KEY
-  3. Cloudflare Workers AI - free daily allowance, secrets CF_ACCOUNT_ID + CF_AI_TOKEN
-  4. OpenRouter free models - secret OPENROUTER_API_KEY
+Order (each step only if its key is available as a repository secret):
+  1. Google Gemini (free tier)              - GEMINI_API_KEY
+  2. Cloudflare Workers AI (free allowance) - CF_ACCOUNT_ID + CF_AI_TOKEN
+  3. OpenRouter free models                 - OPENROUTER_API_KEY
+(GitHub Models was retired by GitHub on 30 July 2026; "github:" entries only work if
+ put back via AI_MODELS_* for a compatible endpoint.)
 If all fail, callers fall back to a no-AI result (e.g. a plain list).
 
 Model lists can be changed without code via the AI_MODELS_FAST / AI_MODELS_SMART
@@ -27,13 +28,12 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # "fast" = tagging many items (cheap models, bigger free quotas); "smart" = writing the brief
 DEFAULT_CHAINS = {
-    "fast": ["github:openai/gpt-4.1-mini", "github:openai/gpt-4o-mini", "github:meta/Llama-3.3-70B-Instruct",
-             "gemini:gemini-3.8-flash", "gemini:gemini-flash-latest",
+    "fast": ["gemini:gemini-3.5-flash-lite", "gemini:gemini-3.1-flash-lite", "gemini:gemini-3.8-flash", "gemini:gemini-flash-latest",
              "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast", "cloudflare:@cf/meta/llama-3.1-8b-instruct",
              "openrouter:meta-llama/llama-3.3-70b-instruct:free"],
-    "smart": ["github:openai/gpt-4.1", "github:openai/gpt-4o", "github:openai/gpt-4.1-mini",
-              "github:meta/Llama-3.3-70B-Instruct", "gemini:gemini-3.8-flash", "gemini:gemini-flash-latest",
-              "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast", "openrouter:meta-llama/llama-3.3-70b-instruct:free"],
+    "smart": ["gemini:gemini-3.8-flash", "gemini:gemini-3.6-flash", "gemini:gemini-flash-latest",
+              "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast", "cloudflare:@cf/meta/llama-3.1-8b-instruct",
+              "openrouter:meta-llama/llama-3.3-70b-instruct:free"],
 }
 
 
@@ -102,7 +102,8 @@ class Chain:
                         text = r.json()["choices"][0]["message"]["content"] or ""
                     except (ValueError, KeyError, IndexError, TypeError):
                         ct = r.headers.get("content-type", "") if hasattr(r, "headers") else ""
-                        self.log.append(f"{spec}: unreadable answer ({ct}) {r.text[:160]!r} via {getattr(r, 'url', url)}")
+                        self.log.append(f"{spec}: unreadable answer ({ct}) {r.text[:160]!r}")
+                        self.dead.add(spec)
                         break
                     if text.strip():
                         self.used.append(spec)

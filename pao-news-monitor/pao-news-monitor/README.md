@@ -37,7 +37,7 @@ Every **Monday at about 7:45am** (Malaysia time) a separate job reads the past w
 
 Open it with **Weekly brief** at the top of the tracker. Team members can **Edit** it; an admin **Approves** it. **Copy for email** copies it with formatting for an Outlook email; **Download Word** gives a .doc file. Nothing is sent automatically. To make one now: **Actions → Weekly brief → Run workflow**.
 
-**AI used (free):** GitHub Models first (no key needed). When a model's free quota runs out it moves to the next model, then to these optional backups if you add their keys as repository secrets: `GEMINI_API_KEY` (Google AI Studio), `CF_ACCOUNT_ID` + `CF_AI_TOKEN` (Cloudflare Workers AI), `OPENROUTER_API_KEY`. If no model is available, the brief is saved as a plain list of the week's items instead. The brief shows which model wrote it.
+**AI used (free):** add at least one key as a repository secret (GitHub → Settings → Secrets and variables → Actions). It tries them in this order and moves on when a model's free quota runs out: `GEMINI_API_KEY` (Google AI Studio, free tier), `CF_ACCOUNT_ID` + `CF_AI_TOKEN` (Cloudflare Workers AI, free daily allowance), `OPENROUTER_API_KEY` (free models). Only titles and short snippets of public news are sent - never your notes. Up to 280 items a week are AI-tagged (relevant, leadership, websites and emails first). If no model is available, the brief is saved as a plain list of the week's items instead. The brief shows which model wrote it.
 
 Setup: run `supabase/update-4.sql` once.
 

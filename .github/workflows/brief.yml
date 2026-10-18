@@ -12,7 +12,7 @@ on:
 
 permissions:
   contents: read
-  models: read               # lets the built-in GITHUB_TOKEN use GitHub Models (free AI)
+  models: read               # (GitHub Models was retired in July 2026; harmless)
 
 concurrency:
   group: brief
