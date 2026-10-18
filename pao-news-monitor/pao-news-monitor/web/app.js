@@ -18,6 +18,11 @@
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  // what kind of email link brought us here (read before Supabase tidies the address bar)
+  const LINK = (() => {
+    const h = new URLSearchParams(location.hash.replace(/^#/, "")), q = new URLSearchParams(location.search);
+    return { type: h.get("type") || q.get("type") || "", error: h.get("error_description") || q.get("error_description") || "" };
+  })();
   const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team" };
   let db = null;
 
@@ -35,9 +40,10 @@
       db = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
       const { data } = await db.auth.getSession();
       state.user = data.session?.user || null;
-      db.auth.onAuthStateChange((_e, session) => {
+      db.auth.onAuthStateChange((event, session) => {
         const had = !!state.user;
         state.user = session?.user || null;
+        if (event === "PASSWORD_RECOVERY") setTimeout(() => openPassword("recovery"), 0);
         if (!had && state.user) start();
         if (had && !state.user) showLogin();
       });
@@ -48,10 +54,23 @@
       const { data, error } = await db.rpc("my_role");
       state.role = error ? "team" : (data || "team");   // database not updated yet: everyone is team
     },
-    async signIn(email) {
-      const { error } = await db.auth.signInWithOtp({
-        email, options: { shouldCreateUser: false, emailRedirectTo: location.origin + location.pathname },
-      });
+    async signIn(email, password) {
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    },
+    async signUp(email, password) {
+      const { data, error } = await db.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+      if (error) throw error;
+      // an existing account comes back with no identities (and no email is sent)
+      return { exists: !data.session && Array.isArray(data.user?.identities) && data.user.identities.length === 0, session: !!data.session };
+    },
+    async forgot(email) {
+      const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+    },
+    async setPassword(password) {
+      if (DEMO) return;
+      const { error } = await db.auth.updateUser({ password });
       if (error) throw error;
     },
     async signOut() { if (db) await db.auth.signOut(); },
@@ -432,19 +451,72 @@
       if ((it[field] || null) !== val) save(id, { [field]: val });
     });
 
+    // ---- sign in / first time / forgot password ----
+    const HELP = {
+      signin: ["Sign in with your work email and password.", "Sign in"],
+      signup: ["An admin must have given your email access first. Choose a password; we'll email you once to confirm it's really you.", "Create my password"],
+      forgot: ["We'll email you a link to set a new password. (Also use this if you used to sign in with email links and never had a password.)", "Email me a link"],
+    };
+    let mode = "signin";
+    function setMode(m) {
+      mode = m;
+      $$(".login-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
+      $("#login-help").textContent = HELP[m][0];
+      $("#login-submit").textContent = HELP[m][1];
+      $$("#login-form .pw").forEach((el) => (el.hidden = m === "forgot"));
+      $$("#login-form .pw2").forEach((el) => (el.hidden = m !== "signup"));
+      $("#login-password").required = m !== "forgot";
+      $("#login-password2").required = m === "signup";
+      $("#login-password").autocomplete = m === "signup" ? "new-password" : "current-password";
+      $("#login-msg").textContent = "";
+    }
+    $$(".login-tabs button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
     $("#login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const msg = $("#login-msg");
-      msg.textContent = "Sending…";
+      const msg = $("#login-msg"), email = $("#login-email").value.trim(), pw = $("#login-password").value;
+      if (mode === "signup" && pw !== $("#login-password2").value) { msg.textContent = "The two passwords don't match."; return; }
+      msg.textContent = mode === "signin" ? "Signing in…" : "Sending…";
       try {
-        await api.signIn($("#login-email").value.trim());
-        msg.textContent = "Check your email for the sign-in link.";
+        if (mode === "signin") {
+          await api.signIn(email, pw);
+          msg.textContent = "";
+        } else if (mode === "signup") {
+          const r = await api.signUp(email, pw);
+          msg.textContent = r.exists ? "This email already has an account. Sign in, or use Forgot password to set a password."
+            : r.session ? "" : "Almost done: check your email and click the confirmation link, then sign in here.";
+        } else {
+          await api.forgot(email);
+          msg.textContent = "If that email has access, a link is on its way. Open it on this device to set your password.";
+        }
       } catch (err) {
-        msg.textContent = /signups not allowed|not found/i.test(err.message)
-          ? "This email hasn't been invited yet. Ask the admin to invite you in Supabase."
-          : "Couldn't send: " + err.message;
+        const m = err.message || String(err);
+        msg.textContent = /invalid login credentials/i.test(m) ? "Wrong email or password. First time here? Use the 'First time here' tab."
+          : /email not confirmed/i.test(m) ? "Please click the confirmation link we emailed you first (check spam too)."
+          : /not been given access|signups not allowed|not allowed/i.test(m) ? "This email hasn't been given access yet. Ask an admin to add you on the Admin tab."
+          : /rate limit|too many/i.test(m) ? "Too many emails sent - please wait a few minutes and try again."
+          : "Couldn't do that: " + m;
       }
     });
+    if (LINK.error) { $("#login-msg").textContent = "That link didn't work (" + LINK.error.replace(/\+/g, " ") + "). Use Forgot password to get a new one."; }
+
+    // ---- set / change password ----
+    $("#password-btn").addEventListener("click", () => openPassword("change"));
+    $("#pw-dialog").addEventListener("close", async () => {
+      if ($("#pw-dialog").returnValue !== "save") return;
+      const f = $("#pw-form");
+      if (f.elements.p1.value !== f.elements.p2.value) { toast("The two passwords don't match", true); return openPassword(pwReason); }
+      try { await api.setPassword(f.elements.p1.value); toast("Password saved. Next time, sign in with your email and password."); }
+      catch (err) { toast("Couldn't save the password: " + err.message, true); openPassword(pwReason); }
+    });
+  }
+
+  let pwReason = "change";
+  function openPassword(reason) {
+    pwReason = reason;
+    const f = $("#pw-form"); f.reset();
+    $("#pw-title").textContent = reason === "change" ? "Change your password" : "Set your password";
+    $("#pw-cancel").textContent = reason === "change" ? "Cancel" : "Later";
+    if (!$("#pw-dialog").open) $("#pw-dialog").showModal();
   }
 
   let addFor = null;
@@ -498,6 +570,7 @@
     $("#login").hidden = true; $("#app").hidden = false;
     $("#demo-banner").hidden = !DEMO;
     await api.loadRole();
+    if (LINK.type === "invite" || LINK.type === "recovery") { openPassword(LINK.type); LINK.type = ""; }
     await reload();
   }
 

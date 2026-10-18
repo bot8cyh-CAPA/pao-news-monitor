@@ -228,3 +228,19 @@ progress { vertical-align: middle; width: 140px; }
 dialog.zoom { width: auto; max-width: calc(100% - 32px); padding: 10px; text-align: right; }
 dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120px); margin-bottom: 8px; }
 @media (max-width: 640px) { .ocr-row { grid-template-columns: 1fr; } .thumb { max-height: 160px; } }
+
+/* ---- sign-in tabs ---- */
+.login-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 4px 0 6px; }
+.login-tabs button { font: inherit; font-size: 13px; background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 8px; color: var(--muted); cursor: pointer; }
+.login-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.login-card #login-help { font-size: 14px; }
+
+/* ---- Admin tab ---- */
+.admin-view { max-width: 1150px; margin: 0 auto; padding: 16px 20px 40px; display: grid; gap: 16px; }
+.admin-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.admin-head h2 { font-size: 22px; margin: 0; } .admin-head h3 { margin: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 10px; }
+.panel h3 { font-size: 17px; margin: 0; }
+.panel p { margin: 0; }
+.person-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.person-add input { flex: 1 1 260px; }

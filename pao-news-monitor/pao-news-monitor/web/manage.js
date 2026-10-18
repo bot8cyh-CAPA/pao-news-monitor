@@ -63,11 +63,26 @@
           <button class="link small" data-toggle="${esc(p.id)}" type="button">${p.active === false ? "Reactivate" : "Deactivate"}</button></td>
       </tr>`).join("")}</tbody>`;
   }
-  async function openMembers() {
+  async function showMembers() {
     $("#members-table").innerHTML = "<tbody><tr><td>Loading…</td></tr></tbody>";
-    $("#members-dialog").showModal();
     try { await loadMembers(); renderMembers(); } catch (e) { $("#members-table").innerHTML = `<tbody><tr><td class="error-box">${esc(friendly(e))}</td></tr></tbody>`; }
   }
+
+  // ================= Admin tab =================
+  function openAdmin() {
+    $("#admin-view").hidden = false;
+    document.querySelector(".filters").hidden = true;
+    document.querySelector(".layout").hidden = true;
+    window.scrollTo(0, 0);
+    showPeople(); showMembers();
+  }
+  function closeAdmin() {
+    $("#admin-view").hidden = true;
+    document.querySelector(".filters").hidden = false;
+    document.querySelector(".layout").hidden = false;
+  }
+  $("#admin-btn").addEventListener("click", openAdmin);
+  $("#admin-back").addEventListener("click", closeAdmin);
   const slug = (s) => (s || "").toLowerCase().normalize("NFKD").replace(/[^\w]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
 
   let editing = null;  // member row being edited, or null for a new one
@@ -167,7 +182,6 @@
     a.click(); URL.revokeObjectURL(a.href);
   }
 
-  $("#members-btn").addEventListener("click", openMembers);
   $("#member-add").addEventListener("click", () => openMemberForm(null));
   $("#members-csv").addEventListener("click", downloadMembersCsv);
   $("#members-table").addEventListener("click", (e) => {
@@ -178,37 +192,60 @@
   });
 
   // ================= People =================
-  const ROLES = ["admin", "team", "viewer"];
-  async function openPeople() {
+  const ROLES = { admin: "Admin", team: "Team", viewer: "Viewer", removed: "No access" };
+  let demoPeople = [
+    { email: "demo@example.org", role: "admin", signed_up: true, last_sign_in_at: new Date().toISOString() },
+    { email: "colleague@example.org", role: "team", signed_up: true },
+    { email: "boss@example.org", role: "viewer", signed_up: false },
+  ];
+  async function showPeople() {
     $("#people-table").innerHTML = "<tbody><tr><td>Loading…</td></tr></tbody>";
-    $("#people-dialog").showModal();
     try {
-      const people = A.DEMO
-        ? [{ email: "demo@example.org", role: "admin" }, { email: "colleague@example.org", role: "team" }, { email: "boss@example.org", role: "viewer" }]
+      const people = A.DEMO ? demoPeople
         : await (async () => { const { data, error } = await A.db.rpc("list_people"); if (error) throw error; return data; })();
-      $("#people-table").innerHTML = `<thead><tr><th>Email</th><th>Role</th><th>Last signed in</th><th>Role last changed</th></tr></thead>
-        <tbody>${people.map((p) => `<tr>
+      $("#people-table").innerHTML = `<thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Role last changed</th></tr></thead>
+        <tbody>${people.map((p) => `<tr class="${p.role === "removed" ? "inactive" : ""}">
           <td>${esc(p.email)}${p.email === me() ? " <span class='muted small'>(you)</span>" : ""}</td>
-          <td><select data-role-for="${esc(p.email)}">${ROLES.map((r) => `<option value="${r}"${p.role === r ? " selected" : ""}>${r[0].toUpperCase() + r.slice(1)}</option>`).join("")}</select></td>
-          <td class="muted small">${p.last_sign_in_at ? new Date(p.last_sign_in_at).toLocaleString() : "never"}</td>
+          <td><select data-role-for="${esc(p.email)}">${Object.entries(ROLES).map(([r, label]) => `<option value="${r}"${p.role === r ? " selected" : ""}>${label}</option>`).join("")}</select></td>
+          <td class="muted small">${p.role === "removed" ? "Access removed" : p.signed_up === false ? "Not signed up yet" : p.last_sign_in_at ? "Last signed in " + new Date(p.last_sign_in_at).toLocaleDateString() : "Signed up"}</td>
           <td class="muted small">${p.role_updated_by ? `${esc(p.role_updated_by)}, ${new Date(p.role_updated_at).toLocaleDateString()}` : ""}</td>
         </tr>`).join("")}</tbody>`;
     } catch (e) { $("#people-table").innerHTML = `<tbody><tr><td class="error-box">${esc(friendly(e))}</td></tr></tbody>`; }
   }
-  $("#people-btn").addEventListener("click", openPeople);
+  async function setRole(email, role) {
+    if (A.DEMO) {
+      const p = demoPeople.find((x) => x.email === email);
+      if (p) p.role = role; else demoPeople.push({ email, role, signed_up: false });
+      return;
+    }
+    const { error } = await A.db.rpc("set_role", { target_email: email, new_role: role });
+    if (error) throw error;
+  }
+  $("#person-add").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target, email = f.elements.email.value.trim().toLowerCase(), role = f.elements.role.value;
+    try {
+      await setRole(email, role);
+      A.toast(`${email} can now sign up as ${ROLES[role]}: ask them to open this page and click "First time here".`);
+      f.reset(); showPeople();
+    } catch (err) { A.toast("Couldn't add: " + friendly(err), true); }
+  });
   $("#people-table").addEventListener("change", async (e) => {
     const sel = e.target.closest("[data-role-for]");
     if (!sel) return;
     const email = sel.dataset.roleFor, role = sel.value;
-    if (email === me() && role !== "admin" && !confirm("Remove your own admin rights? You won't be able to change roles or members afterwards.")) {
+    if (email === me() && role !== "admin" && !confirm("Remove your own admin rights? You won't be able to use this Admin tab afterwards.")) {
       sel.value = "admin"; return;
     }
+    if (role === "removed" && !confirm(`Remove ${email}'s access? They won't be able to see anything. You can give access back any time.`)) {
+      showPeople(); return;
+    }
     try {
-      if (!A.DEMO) { const { error } = await A.db.rpc("set_role", { target_email: email, new_role: role }); if (error) throw error; }
-      A.toast(`${email} is now ${role}`);
-      if (email === me()) { A.state.role = role; document.body.dataset.role = role; A.render(); }
-      openPeople();
-    } catch (err) { A.toast("Couldn't change role: " + friendly(err), true); openPeople(); }
+      await setRole(email, role);
+      A.toast(`${email}: ${ROLES[role]}`);
+      if (email === me()) { A.state.role = role; document.body.dataset.role = role; A.render(); if (role !== "admin") closeAdmin(); }
+      showPeople();
+    } catch (err) { A.toast("Couldn't change role: " + friendly(err), true); showPeople(); }
   });
 
   // ================= Import =================

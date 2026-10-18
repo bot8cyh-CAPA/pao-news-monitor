@@ -16,7 +16,19 @@ Every morning this tool checks the CAPA member bodies and stakeholders for news,
 LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
 
 ### Updating from an earlier version
-If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`.)
+If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`.)
+
+## Sign-in (email + password)
+People sign in with their email and a password. Email is only used to confirm a new account and for "Forgot password".
+
+**One-time setup (after running `supabase/update-3.sql`):**
+1. **Send emails from the Gmail account** (Supabase's built-in sender only emails your Supabase team, 2 per hour): Supabase → **Authentication → Emails → SMTP Settings** → enable custom SMTP. Host `smtp.gmail.com`, port `465`, username `bot8cyh@gmail.com`, password = a Google app password (Google account → Security → App passwords), sender email `bot8cyh@gmail.com`, sender name `PAO News Monitor`. Save.
+2. **Only listed emails may sign up:** **Authentication → Hooks → Add hook → Before User Created** → type **Postgres** → schema `public`, function `hook_allow_listed_signup` → Create.
+3. **Allow sign-up:** **Authentication → Sign In / Providers → Email**: turn on **Allow new users to sign up**, keep **Confirm email** on.
+4. **Authentication → URL Configuration:** Site URL and Redirect URLs = the tracker's address (already done).
+
+**Adding someone:** Admin tab → type their email, pick a role → **Give access**. Tell them to open the tracker and click **First time here**, choose a password, and click the confirmation email once. Anyone not on the Admin tab's list can't sign up, and has no access even if they somehow had an account.
+**Forgot password / used to sign in with email links:** the **Forgot password** tab emails a link to set one. Signed-in people can change it with the **Password** button.
 
 ## Roles
 | Role | Can |
@@ -25,10 +37,10 @@ If your database was set up before update 2 (publications/events, page watch, Me
 | **Team** | Tag items, add items, Import, Screenshots (OCR), export. Everyone invited starts as Team. |
 | **Viewer** | Read and export only |
 
-Invite people in Supabase (**Authentication → Users → Invite user**), then set their role on the tracker's **People** screen. There must always be at least one admin. The rules are enforced by the database, not just the page.
+Add people, change roles or remove access (**No access**) on the tracker's **Admin** tab. There must always be at least one admin. The rules are enforced by the database, not just the page.
 
 ## Members (the PAO list)
-Admins manage the list on the tracker's **Members** screen: add a PAO (name, abbreviation, group, country, website; Google News searches are suggested from the name), edit any setting, or **Deactivate** (hidden and no longer collected, past items kept, can be reactivated). **Delete permanently** also deletes everything collected for that PAO; use it only for mistakes like duplicates. Changes apply from the next collection. **Download list (CSV)** gives a backup copy.
+Admins manage the list on the tracker's **Admin** tab (Members): add a PAO (name, abbreviation, group, country, website; Google News searches are suggested from the name), edit any setting, or **Deactivate** (hidden and no longer collected, past items kept, can be reactivated). **Delete permanently** also deletes everything collected for that PAO; use it only for mistakes like duplicates. Changes apply from the next collection. **Download list (CSV)** gives a backup copy.
 
 After update 2, the first collection copies `config/paos.csv` into the database once; from then on the Members screen is what counts, and editing `paos.csv` has no effect.
 

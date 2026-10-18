@@ -11,13 +11,36 @@
   <div id="login" class="login" hidden>
     <form id="login-form" class="login-card">
       <h1>PAO News Monitor</h1>
-      <p>Sign in with your work email. We'll send you a sign-in link.</p>
+      <div class="login-tabs" role="tablist">
+        <button type="button" data-mode="signin" class="active">Sign in</button>
+        <button type="button" data-mode="signup">First time here</button>
+        <button type="button" data-mode="forgot">Forgot password</button>
+      </div>
+      <p id="login-help">Sign in with your work email and password.</p>
       <label for="login-email">Email</label>
       <input id="login-email" type="email" required autocomplete="email" placeholder="you@example.org">
-      <button type="submit" class="btn primary">Send sign-in link</button>
+      <label for="login-password" class="pw">Password</label>
+      <input id="login-password" class="pw" type="password" autocomplete="current-password" minlength="8">
+      <label for="login-password2" class="pw2" hidden>Repeat password</label>
+      <input id="login-password2" class="pw2" type="password" autocomplete="new-password" minlength="8" hidden>
+      <button type="submit" class="btn primary" id="login-submit">Sign in</button>
       <p id="login-msg" class="login-msg" role="status"></p>
     </form>
   </div>
+
+  <dialog id="pw-dialog">
+    <form method="dialog" id="pw-form" class="add-form">
+      <h2 id="pw-title">Set your password</h2>
+      <p class="muted small" id="pw-help">Choose a password (at least 8 characters). From now on you sign in with your email and this password - no more email links.</p>
+      <label>New password <input type="password" name="p1" minlength="8" required autocomplete="new-password"></label>
+      <label>Repeat password <input type="password" name="p2" minlength="8" required autocomplete="new-password"></label>
+      <p class="login-msg" id="pw-msg" role="status"></p>
+      <div class="dialog-actions">
+        <button value="cancel" formnovalidate class="btn ghost" id="pw-cancel">Later</button>
+        <button value="save" class="btn primary">Save password</button>
+      </div>
+    </form>
+  </dialog>
 
   <div id="app" hidden>
     <header class="topbar">
@@ -33,16 +56,48 @@
         <button id="refresh" class="btn ghost" type="button">Refresh</button>
         <a id="ocr-link" class="btn ghost edit-only" href="ocr.html">Screenshots (OCR)</a>
         <button id="import-btn" class="btn ghost edit-only" type="button">Import</button>
-        <button id="members-btn" class="btn ghost admin-only" type="button">Members</button>
-        <button id="people-btn" class="btn ghost admin-only" type="button">People</button>
+        <button id="admin-btn" class="btn ghost admin-only" type="button">Admin</button>
         <button id="export" class="btn" type="button">Export CSV</button>
         <span id="user" class="muted small"></span>
+        <button id="password-btn" class="btn ghost" type="button" title="Set or change your password">Password</button>
         <button id="signout" class="btn ghost" type="button">Sign out</button>
       </div>
     </header>
     <div id="demo-banner" class="demo-banner" hidden>
       Demo mode with sample data. Fill in <code>web/config.js</code> to connect your database.
     </div>
+
+    <section id="admin-view" class="admin-view" hidden>
+      <div class="admin-head">
+        <h2>Admin</h2>
+        <button class="btn" id="admin-back" type="button">← Back to news</button>
+      </div>
+
+      <div class="panel">
+        <h3>People</h3>
+        <p class="muted small"><b>Admin</b>: everything, including this tab. <b>Team</b>: tag, add, import, screenshots. <b>Viewer</b>: read and export only.
+          <b>No access</b>: can't see anything.</p>
+        <form id="person-add" class="person-add">
+          <input type="email" name="email" required placeholder="new.person@capa-apac.org" aria-label="Email">
+          <select name="role" aria-label="Role"><option value="team">Team</option><option value="viewer">Viewer</option><option value="admin">Admin</option></select>
+          <button class="btn primary" type="submit">Give access</button>
+        </form>
+        <p class="muted small">After you give someone access, tell them to open this page and click <b>First time here</b> to create their password.</p>
+        <div class="table-wrap"><table class="grid" id="people-table"></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="admin-head">
+          <h3>Members (PAOs)</h3>
+          <div class="dialog-tools">
+            <button class="btn primary" id="member-add" type="button">+ Add member</button>
+            <button class="btn ghost" id="members-csv" type="button">Download list (CSV)</button>
+          </div>
+        </div>
+        <p class="muted small">Changes are picked up by the next daily collection. Deactivated members are hidden and no longer collected; their past items are kept.</p>
+        <div class="table-wrap"><table class="grid" id="members-table"></table></div>
+      </div>
+    </section>
 
     <div class="filters" role="search">
       <label>Period
@@ -106,20 +161,6 @@
     </form>
   </dialog>
 
-  <!-- Members (admins) -->
-  <dialog id="members-dialog" class="wide">
-    <div class="dialog-head">
-      <h2>Members</h2>
-      <div class="dialog-tools">
-        <button class="btn primary" id="member-add" type="button">+ Add member</button>
-        <button class="btn ghost" id="members-csv" type="button">Download list (CSV)</button>
-        <button class="btn ghost" data-close type="button">Close</button>
-      </div>
-    </div>
-    <p class="muted small">Changes are picked up by the next daily collection (or use Actions → Run workflow). Deactivated members are hidden and no longer collected; their past items are kept.</p>
-    <div class="table-wrap"><table class="grid" id="members-table"></table></div>
-  </dialog>
-
   <dialog id="member-dialog">
     <form method="dialog" id="member-form" class="add-form">
       <h2 id="member-form-title">Add member</h2>
@@ -166,17 +207,6 @@
         <button value="save" class="btn primary">Save</button>
       </div>
     </form>
-  </dialog>
-
-  <!-- People (admins) -->
-  <dialog id="people-dialog" class="wide">
-    <div class="dialog-head">
-      <h2>People</h2>
-      <div class="dialog-tools"><button class="btn ghost" data-close type="button">Close</button></div>
-    </div>
-    <p class="muted small"><b>Admin</b>: everything, including Members and People. <b>Team</b>: tag, add, import, screenshots. <b>Viewer</b>: read and export only.
-      To add someone, invite them in Supabase (Authentication → Users → Invite user); they start as Team.</p>
-    <div class="table-wrap"><table class="grid" id="people-table"></table></div>
   </dialog>
 
   <!-- Import -->
