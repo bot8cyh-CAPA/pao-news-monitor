@@ -265,8 +265,8 @@ def cli(argv=None):
     msg = (f"Weekly brief saved as draft: {s['items']} items, {s['tagged']} tagged, {s['in_brief']} in brief, "
            f"model(s): {row['models_used']}")
     print(f"::notice title=Weekly brief::{msg}")
-    for n in s["notes"]:
-        print(f"::warning title=AI fallback::{n[:300]}") if "stopped" in n else print("  " + n)
+    for n in s["notes"][:12]:   # shown on the run page, so problems can be diagnosed without the log
+        print(f"::warning title=AI fallback::{n[:300]}") if "stopped" in n else print(f"::notice title=AI detail::{n[:300]}")
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if path:
         with open(path, "a", encoding="utf-8") as f:
