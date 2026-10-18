@@ -84,8 +84,17 @@ def week_window(days, now=None):
 def gather(store, since):
     items = store.items_since(iso(since))
     items = [i for i in items if not i.get("is_baseline") and i.get("relevance") != "not_relevant"]
-    items.sort(key=lambda i: (i.get("published_at") or i.get("first_seen_at") or ""), reverse=True)
-    return items
+    # same story found twice (e.g. two Google News searches): keep one, preferring a reviewed one
+    items.sort(key=lambda i: (i.get("relevance") == "relevant", i.get("source") != "google_news"), reverse=True)
+    seen, unique = set(), []
+    for it in items:
+        key = (it["pao_id"], re.sub(r"\W+", " ", (it.get("title") or "").lower()).strip())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(it)
+    unique.sort(key=lambda i: (i.get("published_at") or i.get("first_seen_at") or ""), reverse=True)
+    return unique
 
 
 def tag(chain, items, paos, notes):

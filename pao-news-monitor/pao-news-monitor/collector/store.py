@@ -58,7 +58,13 @@ class SupabaseStore:
                       headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
 
     def save_brief(self, row):
+        """Save a new draft and remove older drafts for an overlapping period that nobody
+        edited or approved (they're superseded). Edited or approved briefs are always kept."""
         self._req("POST", "/briefs", json=row, headers={"Prefer": "return=minimal"})
+        start = quote(row["period_start"].replace("+00:00", "Z"), safe=":-.TZ")
+        created = quote(row["created_at"].replace("+00:00", "Z"), safe=":-.TZ")
+        self._req("DELETE", f"/briefs?status=eq.draft&edited_by=is.null&period_end=gt.{start}&created_at=lt.{created}",
+                  headers={"Prefer": "return=minimal"})
 
     def schema_problems(self):
         """What's missing from the database (supabase/update-2.sql not run yet)."""
@@ -163,7 +169,9 @@ class JsonStore:
         self._save()
 
     def save_brief(self, row):
-        self.data.setdefault("briefs", []).append(row)
+        self.data["briefs"] = [b for b in self.data.get("briefs", [])
+                               if b.get("status") != "draft" or b.get("edited_by") or b["period_end"] <= row["period_start"]]
+        self.data["briefs"].append(row)
         self._save()
 
     def load_pages(self):

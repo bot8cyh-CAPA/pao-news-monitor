@@ -160,3 +160,16 @@ def test_cut_off_answer_retried_with_more_room_then_next_model():
     assert c.ask("smart", "s", "u", max_tokens=100) == ("complete brief", "github:m2")
     assert http.calls == ["big", "big", "m2"]
     assert any("cut off at 100" in l for l in c.log) and any("cut off at 300" in l for l in c.log)
+
+
+def test_duplicate_headlines_merged_and_old_drafts_replaced(tmp_path):
+    store = make_store(tmp_path)
+    store.data["items"]["dup"] = dict(store.data["items"]["a"], id="dup", source="google_news")
+    assert len(brief.gather(store, NOW - __import__("datetime").timedelta(days=7))) == 3
+    chain = lambda: ai.Chain(env={}, session=FakeHTTP({}))
+    store.save_brief(brief.build(store, chain=chain(), now=NOW))
+    store.data["briefs"][0]["edited_by"] = None
+    kept = dict(brief.build(store, chain=chain(), now=NOW), edited_by="me@capa")
+    store.save_brief(kept)
+    store.save_brief(brief.build(store, chain=chain(), now=NOW))
+    assert len(store.data["briefs"]) == 2 and store.data["briefs"][0]["edited_by"] == "me@capa"
