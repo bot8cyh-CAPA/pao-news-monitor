@@ -76,20 +76,23 @@ class Chain:
 
     # ---- calling ----
     def ask(self, kind, system, user, max_tokens=1500, temperature=0.2):
-        """Returns (text, model_spec). Raises AIUnavailable if nothing answers."""
+        """Returns (text, model_spec). Raises AIUnavailable if nothing answers.
+        An answer that was cut off (ran out of length) counts as a failure: the same model
+        is asked once more with 3x the room, then the next model is tried."""
         tried = []
         for spec, url, key, model in self.chain(kind):
             if spec in self.dead:
                 continue
             tried.append(spec)
-            for attempt in range(2):
+            budget = max_tokens
+            for attempt in range(3):
                 try:
                     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json",
                                "Accept": "application/json", "User-Agent": "pao-news-monitor/1.0"}
                     if url == GITHUB_URL:   # GitHub's API wants its own Accept + version headers
                         headers.update({"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
                     r = self.http.post(url, timeout=120, headers=headers,
-                        json={"model": model, "temperature": temperature, "max_tokens": max_tokens,
+                        json={"model": model, "temperature": temperature, "max_tokens": budget,
                               "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]})
                 except requests.RequestException as e:
                     self.log.append(f"{spec}: {type(e).__name__}")
@@ -99,18 +102,26 @@ class Chain:
                     break
                 if r.status_code == 200:
                     try:
-                        text = r.json()["choices"][0]["message"]["content"] or ""
+                        choice = r.json()["choices"][0]
+                        text = choice["message"]["content"] or ""
+                        finish = choice.get("finish_reason")
                     except (ValueError, KeyError, IndexError, TypeError):
                         ct = r.headers.get("content-type", "") if hasattr(r, "headers") else ""
                         self.log.append(f"{spec}: unreadable answer ({ct}) {r.text[:160]!r}")
                         self.dead.add(spec)
+                        break
+                    if finish == "length":   # cut off mid-answer (thinking models use part of the budget)
+                        self.log.append(f"{spec}: answer cut off at {budget} tokens")
+                        if attempt < 2 and budget < max_tokens * 3:
+                            budget = max_tokens * 3
+                            continue
                         break
                     if text.strip():
                         self.used.append(spec)
                         return text, spec
                     self.log.append(f"{spec}: empty answer")
                     break
-                if r.status_code >= 500 and attempt == 0:
+                if r.status_code >= 500 and attempt < 2:
                     self.sleep(5)
                     continue
                 # 429 = free quota used up; 401/403/404/400 = no access or unknown model: skip for the rest of the run

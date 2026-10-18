@@ -151,3 +151,12 @@ def test_default_chain_uses_free_providers_with_keys():
     specs = [s for s, *_ in c.chain("smart")]
     assert specs[0].startswith("gemini:") and any(s.startswith("cloudflare:") for s in specs)
     assert not any(s.startswith(("github:", "openrouter:")) for s in specs)
+
+
+def test_cut_off_answer_retried_with_more_room_then_next_model():
+    cut = FakeResp(200, {"choices": [{"message": {"content": "## Headlines\n- half"}, "finish_reason": "length"}]})
+    http = FakeHTTP({"big": [cut, cut], "m2": [answer("complete brief")]})
+    c = ai.Chain(env=ENV, session=http, sleep=lambda s: None)
+    assert c.ask("smart", "s", "u", max_tokens=100) == ("complete brief", "github:m2")
+    assert http.calls == ["big", "big", "m2"]
+    assert any("cut off at 100" in l for l in c.log) and any("cut off at 300" in l for l in c.log)

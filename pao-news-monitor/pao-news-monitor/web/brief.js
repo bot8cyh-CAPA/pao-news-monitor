@@ -15,6 +15,7 @@
   function inline(text, sources) {
     let h = esc(text);
     h = h.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, "$1<em>$2</em>");
+    h = h.replace(/\[(\d{1,3}(?:\s*[,;]\s*\d{1,3})+)\]/g, (m, list) => list.split(/[,;]/).map((n) => `[${n.trim()}]`).join(""));  // [3, 5] -> [3][5]
     h = h.replace(/\[(\d{1,3})\]/g, (m, n) => {
       const s = sources[n];
       return s && s.url ? `<a class="cite" href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(s.pao + ": " + s.title)}">[${n}]</a>`
