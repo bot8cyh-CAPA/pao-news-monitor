@@ -31,12 +31,12 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 # "fast" = tagging many items (cheap models, bigger free quotas); "smart" = writing the brief
 DEFAULT_CHAINS = {
     "fast": ["gemini:gemini-3.5-flash-lite", "gemini:gemini-3.1-flash-lite", "gemini:gemini-3.8-flash", "gemini:gemini-flash-latest",
-             "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:llama-3.3-70b-versatile",
-             "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast", "cloudflare:@cf/meta/llama-3.1-8b-instruct",
+             "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b",
+             "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast",
              "openrouter:nvidia/nemotron-3-super-120b-a12b:free", "openrouter:nvidia/nemotron-3.5-lightning:free"],
     "smart": ["gemini:gemini-3.8-flash", "gemini:gemini-3.6-flash", "gemini:gemini-flash-latest",
-              "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:llama-3.3-70b-versatile",
-              "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast", "cloudflare:@cf/meta/llama-3.1-8b-instruct",
+              "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b",
+              "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast",
               "openrouter:nvidia/nemotron-3-super-120b-a12b:free", "openrouter:nvidia/nemotron-3.5-lightning:free"],
 }
 
