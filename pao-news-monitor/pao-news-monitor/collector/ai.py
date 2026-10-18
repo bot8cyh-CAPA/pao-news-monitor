@@ -84,9 +84,11 @@ class Chain:
             tried.append(spec)
             for attempt in range(2):
                 try:
-                    r = self.http.post(url, timeout=120, headers={
-                        "Authorization": f"Bearer {key}", "Content-Type": "application/json",
-                        "User-Agent": "pao-news-monitor/1.0"},
+                    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                               "Accept": "application/json", "User-Agent": "pao-news-monitor/1.0"}
+                    if url == GITHUB_URL:   # GitHub's API wants its own Accept + version headers
+                        headers.update({"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
+                    r = self.http.post(url, timeout=120, headers=headers,
                         json={"model": model, "temperature": temperature, "max_tokens": max_tokens,
                               "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]})
                 except requests.RequestException as e:
