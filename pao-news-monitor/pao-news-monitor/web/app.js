@@ -7,7 +7,8 @@
   const CFG = window.PAO_CONFIG || {};
   const DEMO = !CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY;
   const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
-  const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team" };
+  const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team", page_watch: "Page watch" };
+  const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", leadership: "Leadership change", contact: "Contact change" };
   const GROUP_ORDER = ["Member", "Associate", "Affiliate", "Stakeholder", "Inbox"];
   const GROUP_LABEL = { Member: "Members", Associate: "Associates", Affiliate: "Affiliates", Stakeholder: "Stakeholders", Inbox: "Inbox" };
   const STALE_DAYS = 60;
@@ -59,12 +60,15 @@
         db.from("runs").select("*").order("id", { ascending: false }).limit(1),
       ]);
       for (const r of [paos, health, runs]) if (r.error) throw r.error;
-      const cols = "id,pao_id,source,title,url,published_at,snippet,source_name,language,is_baseline,first_seen_at,relevance,category,notes,reviewed_by,reviewed_at";
+      let cols = "id,pao_id,source,title,url,published_at,snippet,source_name,language,is_baseline,first_seen_at,relevance,category,notes,reviewed_by,reviewed_at,kind";
       const items = [];
       for (let from = 0; ; from += 1000) {
         let q = db.from("items").select(cols).order("first_seen_at", { ascending: false }).range(from, from + 999);
         if (sinceIso) q = q.or(`first_seen_at.gte.${sinceIso},published_at.gte.${sinceIso}`);
         const { data, error } = await q;
+        if (error && cols.endsWith(",kind") && /kind/.test(error.message)) {  // database not updated yet
+          cols = cols.slice(0, -5); from -= 1000; continue;
+        }
         if (error) throw error;
         items.push(...data);
         if (data.length < 1000) break;
@@ -102,7 +106,8 @@
     return {
       period: $("#f-period").value,
       status: $("#f-status").value,
-      sources: $$("input[name=src]:checked").map((i) => i.value),
+      sources: $$("input[name=src]:checked").map((i) => i.value).concat("_seen_pw"),
+      kinds: $$("input[name=kind]:checked").map((i) => i.value),
       baseline: $("#f-baseline").checked,
       q: $("#f-search").value.trim().toLowerCase(),
     };
@@ -116,14 +121,30 @@
     if (!f) return;
     if (f.period) $("#f-period").value = f.period;
     if (f.status) $("#f-status").value = f.status;
-    if (Array.isArray(f.sources)) $$("input[name=src]").forEach((i) => (i.checked = f.sources.includes(i.value)));
+    // "page_watch" is new: tick it for people whose saved filters predate it
+    if (Array.isArray(f.sources)) $$("input[name=src]").forEach((i) => (i.checked = f.sources.includes(i.value) || (i.value === "page_watch" && !f.sources.includes("_seen_pw"))));
+    if (Array.isArray(f.kinds)) $$("input[name=kind]").forEach((i) => (i.checked = f.kinds.includes(i.value)));
     $("#f-baseline").checked = !!f.baseline;
   }
+  // what an item is: saved by the collector, or guessed from its address for older items
+  function kindOf(it) {
+    if (it.kind) return it.kind;
+    if (it.source === "page_watch") return "leadership";
+    if (it.source === "website" && it.url) {
+      let path = it.url;
+      try { path = new URL(it.url).pathname; } catch { /* keep */ }
+      if (/\/(events?|seminars?|webinars?|conferences?|workshops?|cpd|cpe)(\/|-|_|\b)/i.test(path)) return "events";
+      if (/\/(publications?|journals?|magazines?|newsletters?|reports?|library|resources)(\/|-|_|\b)|\.pdf($|\?)/i.test(it.url)) return "publications";
+    }
+    return "news";
+  }
+  const kindGroup = (k) => (k === "leadership" || k === "contact" ? "changes" : k);
   const sinceIso = (period) => (period === "all" ? null : new Date(Date.now() - Number(period) * 864e5).toISOString());
   const itemDate = (it) => it.published_at || it.first_seen_at;
 
   function visible(it, f, since) {
     if (!f.sources.includes(it.source)) return false;
+    if (!f.kinds.includes(kindGroup(kindOf(it)))) return false;
     if (it.is_baseline && !f.baseline) return false;
     // in the period = published in it, or newly found by us in it
     if (since && !(itemDate(it) >= since || it.first_seen_at >= since)) return false;
@@ -150,17 +171,26 @@
     if (m < 1440) return `${Math.round(m / 60)} h ago`;
     return `${Math.round(m / 1440)} d ago`;
   }
-  const nonEnglish = (it) => (it.language && !it.language.startsWith("en")) || /[^\u0000-ɏ -⁯]/.test(it.title);
-  const translateUrl = (it) =>
-    it.url && it.source !== "email"
-      ? `https://translate.google.com/translate?sl=auto&tl=en&u=${encodeURIComponent(it.url)}`
-      : `https://translate.google.com/?sl=auto&tl=en&op=translate&text=${encodeURIComponent(it.title + "\n\n" + (it.snippet || ""))}`;
+  const FOREIGN_WORDS = /\b(le|la|les|des|du|et|pour|sur|dans|une|aux|au|par|vers|avec|est|el|los|las|del|para|und|der|die|das|dan|yang|untuk)\b/gi;
+  function nonEnglish(it) {
+    const lang = it.language || state.paos.find((p) => p.id === it.pao_id)?.lang || "";
+    if (lang && !lang.startsWith("en")) return true;
+    if (/[^\u0000-\u024F\u2000-\u206F\u20A0-\u20CF]/.test(it.title)) return true;   // non-Latin script
+    const words = (it.title.match(FOREIGN_WORDS) || []).length;
+    return words >= 2 || (words >= 1 && /[\u00C0-\u00FF]/.test(it.title));
+  }
+  const realSnippet = (it) => (it.snippet && !it.snippet.startsWith("Search: ") && it.source !== "page_watch" ? it.snippet : "");
+  // Google News links are Google redirects that its page translator refuses, so translate the text instead
+  const textTranslateUrl = (it) =>
+    `https://translate.google.com/?sl=auto&tl=en&op=translate&text=${encodeURIComponent((it.title + "\n\n" + realSnippet(it)).trim().slice(0, 4000))}`;
+  const pageTranslateUrl = (url) => `https://translate.google.com/translate?sl=auto&tl=en&u=${encodeURIComponent(url)}`;
+  const canTranslatePage = (it) => it.url && (it.source === "website" || it.source === "page_watch") && !/news\.google\.com/.test(it.url);
 
   function healthFor(paoId) {
     const rows = state.health.filter((h) => h.pao_id === paoId);
-    return ["website", "google_news", "newsapi"].map((src) => {
+    return ["website", "page_watch", "google_news", "newsapi"].map((src) => {
       const h = rows.find((r) => r.source === src);
-      if (!h) return { src, level: "none", text: "not run yet" };
+      if (!h) return src === "page_watch" ? null : { src, level: "none", text: "not run yet" };
       let level = h.status === "ok" ? "ok" : h.status === "warning" ? "warn" : h.status === "error" ? "error" : "none";
       let text = h.message || h.status;
       if (src === "website" && h.status !== "skipped" && h.last_success_at) {
@@ -172,7 +202,7 @@
       }
       if (h.status === "error" && h.consecutive_failures > 1) text = `Failed ${h.consecutive_failures} runs in a row. ${text}`;
       return { src, level, text, when: h.last_run_at };
-    });
+    }).filter(Boolean);
   }
   function worstLevel(hs) {
     for (const l of ["error", "warn", "ok"]) if (hs.some((h) => h.level === l)) return l;
@@ -226,6 +256,7 @@
         </div>
         <div class="pao-tools">
           ${isInbox ? "" : `<a class="btn ghost small" target="_blank" rel="noopener" title="Check LinkedIn by hand" href="https://www.linkedin.com/search/results/content/?keywords=${searchName}&sortBy=%22date_posted%22">LinkedIn</a>`}
+          ${p.facebook ? `<a class="btn ghost small" target="_blank" rel="noopener" title="Check their Facebook page by hand" href="${esc(p.facebook)}">Facebook</a>` : ""}
           <button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>
         </div>
       </header>
@@ -240,14 +271,17 @@
     return `<li class="item ${it.relevance || ""}" data-id="${esc(it.id)}">
       <div class="meta">
         <span class="src ${esc(it.source)}">${esc(SOURCE_LABEL[it.source] || it.source)}</span>
+        ${kindOf(it) !== "news" ? `<span class="kind ${esc(kindOf(it))}">${esc(KIND_LABEL[kindOf(it)] || kindOf(it))}</span>` : ""}
         ${itemDate(it) ? `<time datetime="${esc(itemDate(it))}">${fmtDate(itemDate(it))}</time>` : ""}
         ${it.source_name ? `<span class="muted">${esc(it.source_name)}</span>` : ""}
         ${it.is_baseline ? `<span class="tag" title="Found on the first scan of this site, may be old">first scan</span>` : ""}
       </div>
       <h4>${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : esc(it.title)}</h4>
-      ${it.snippet && !it.snippet.startsWith("Search: ") ? `<p class="snippet">${esc(it.snippet)}</p>` : ""}
+      ${realSnippet(it) ? `<p class="snippet">${esc(it.snippet)}</p>` : ""}
+      ${it.source === "page_watch" && it.snippet ? `<p class="snippet diff">${esc(it.snippet)}</p><p class="muted small">Check the page before updating your records - a layout change can look like a new name.</p>` : ""}
       ${it.snippet && it.snippet.startsWith("Search: ") ? `<p class="muted small">Found by ${esc(it.snippet.toLowerCase())}</p>` : ""}
-      ${it.source === "email" ? `<button class="link small" data-content="${esc(it.id)}" type="button">Show full email</button><pre class="full" hidden></pre>` : ""}
+      ${it.source === "email" ? `<button class="link small" data-content="${esc(it.id)}" data-show="Show full email" data-hide="Hide email" type="button">Show full email</button><pre class="full" hidden></pre>` : ""}
+      ${it.source === "page_watch" ? `<button class="link small" data-content="${esc(it.id)}" data-show="Show before / now" data-hide="Hide before / now" type="button">Show before / now</button><pre class="full" hidden></pre>` : ""}
       <div class="actions">
         <div class="seg" role="group" aria-label="Relevance">
           <button type="button" data-rel="relevant" aria-pressed="${it.relevance === "relevant"}">Relevant</button>
@@ -255,7 +289,9 @@
         </div>
         <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category">
         <input class="notes" value="${esc(it.notes || "")}" placeholder="Notes" aria-label="Notes">
-        ${nonEnglish(it) ? `<a class="link small" href="${esc(translateUrl(it))}" target="_blank" rel="noopener">Translate</a>` : ""}
+        ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type">${["news", "events", "publications"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
+        ${nonEnglish(it) ? `<a class="link small" href="${esc(textTranslateUrl(it))}" target="_blank" rel="noopener" title="Translate the headline">Translate</a>` : ""}
+        ${nonEnglish(it) && canTranslatePage(it) ? `<a class="link small" href="${esc(pageTranslateUrl(it.url))}" target="_blank" rel="noopener" title="Open the whole page translated">Translate page</a>` : ""}
         ${reviewed}
       </div>
     </li>`;
@@ -313,7 +349,7 @@
       needMore ? reload() : render();
     });
     for (const el of ["#f-status", "#f-baseline"]) $(el).addEventListener("change", () => { saveFilters(); render(); });
-    $$("input[name=src]").forEach((i) => i.addEventListener("change", () => { saveFilters(); render(); }));
+    $$("input[name=src], input[name=kind]").forEach((i) => i.addEventListener("change", () => { saveFilters(); render(); }));
     let typing; $("#f-search").addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(render, 200); });
     $("#jump").addEventListener("change", (e) => { if (e.target.value) location.hash = "pao-" + e.target.value; e.target.value = ""; });
     $("#refresh").addEventListener("click", reload);
@@ -336,11 +372,12 @@
           try { pre.textContent = await api.content(more.dataset.content) || "(empty)"; } catch (err) { toast(err.message, true); return; }
         }
         pre.hidden = !pre.hidden;
-        more.textContent = pre.hidden ? "Show full email" : "Hide email";
+        more.textContent = pre.hidden ? more.dataset.show : more.dataset.hide;
       }
     });
     $("#main").addEventListener("change", (e) => {
       const el = e.target;
+      if (el.matches(".kind-pick")) return save(el.closest(".item").dataset.id, { kind: el.value });
       if (!el.matches(".cat, .notes")) return;
       const id = el.closest(".item").dataset.id;
       const field = el.classList.contains("cat") ? "category" : "notes";
@@ -394,11 +431,11 @@
     const paoById = new Map(state.paos.map((p) => [p.id, p]));
     const rows = state.items.filter((it) => paoById.has(it.pao_id) && visible(it, f, since))
       .sort((a, b) => (paoById.get(a.pao_id).sort_order - paoById.get(b.pao_id).sort_order) || (itemDate(b) || "").localeCompare(itemDate(a) || ""));
-    const head = ["PAO", "Organisation", "Jurisdiction", "Date", "Source", "Outlet / sender", "Title", "Link", "Relevance", "Category", "Notes", "Reviewed by"];
+    const head = ["PAO", "Organisation", "Jurisdiction", "Date", "Type", "Source", "Outlet / sender", "Title", "Link", "Relevance", "Category", "Notes", "Reviewed by"];
     const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const lines = [head.map(cell).join(",")].concat(rows.map((it) => {
       const p = paoById.get(it.pao_id);
-      return [p.abbr, p.name, p.jurisdiction, (itemDate(it) || "").slice(0, 10), SOURCE_LABEL[it.source], it.source_name, it.title, it.url,
+      return [p.abbr, p.name, p.jurisdiction, (itemDate(it) || "").slice(0, 10), KIND_LABEL[kindOf(it)], SOURCE_LABEL[it.source], it.source_name, it.title, it.url,
         it.relevance === "relevant" ? "Relevant" : it.relevance === "not_relevant" ? "Not relevant" : "", it.category, it.notes, it.reviewed_by].map(cell).join(",");
     }));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });

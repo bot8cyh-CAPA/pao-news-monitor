@@ -43,6 +43,7 @@
     <div class="filters" role="search">
       <label>Period
         <select id="f-period">
+          <option value="1">Last 24 hours</option>
           <option value="7">Last 7 days</option>
           <option value="30" selected>Last 30 days</option>
           <option value="90">Last 90 days</option>
@@ -66,6 +67,14 @@
         <label><input type="checkbox" name="src" value="newsapi" checked> NewsAPI</label>
         <label><input type="checkbox" name="src" value="email" checked> Email</label>
         <label><input type="checkbox" name="src" value="manual" checked> Added by team</label>
+        <label><input type="checkbox" name="src" value="page_watch" checked> Page watch</label>
+      </fieldset>
+      <fieldset class="sources kinds">
+        <legend class="sr-only">Type</legend>
+        <label><input type="checkbox" name="kind" value="news" checked> News</label>
+        <label><input type="checkbox" name="kind" value="events" checked> Events</label>
+        <label><input type="checkbox" name="kind" value="publications" checked> Publications</label>
+        <label><input type="checkbox" name="kind" value="changes" checked> Leadership / contact changes</label>
       </fieldset>
       <label class="check"><input type="checkbox" id="f-baseline"> Include first-scan links</label>
       <input id="f-search" type="search" placeholder="Search titles, notes, categories…" aria-label="Search">

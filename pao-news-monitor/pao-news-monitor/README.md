@@ -1,18 +1,22 @@
 # PAO News Monitor
 
-Every morning this tool checks the CAPA member bodies and stakeholders for news, and puts what it finds on a web page grouped by organisation. Every organisation is listed, even when nothing was found. Your team decides what's relevant: mark items **Relevant** or **Not relevant**, give them a category, add notes, then export to CSV for the newsletter.
+Every morning this tool checks the CAPA member bodies and stakeholders for news, publications, events and leadership changes, and puts what it finds on a web page grouped by organisation. Every organisation is listed, even when nothing was found. Your team decides what's relevant: mark items **Relevant** or **Not relevant**, give them a category, add notes, then export to CSV for the newsletter.
 
 **Where the news comes from**
 
 | Source | What it catches |
 |---|---|
-| **Websites** | New links on each PAO's own news, announcements or press pages. No per-site setup is needed, and non-English pages work. |
+| **Websites** | New links on each PAO's own news, publications and events pages, labelled **News / Event / Publication**. No per-site setup is needed, and non-English pages work. |
+| **Page watch** | Silent **leadership and contact changes**: the President, Vice-President and CEO / Executive Director / Secretary-General named on the leadership pages, and the address, phone and email on the contact page. Council members and lower are ignored. |
 | **Google News** | Coverage *about* each PAO in other outlets, including local and non-English press. |
 | **NewsAPI** | A second news search (free plan). |
 | **Email** | Press releases sent to the monitor inbox (`bot8cyh@gmail.com`). |
 | **Added by team** | Anything you find yourselves, e.g. on LinkedIn. Use **+ Add item** on the page. |
 
-LinkedIn is not scraped, because that's against LinkedIn's terms. Each PAO has a **LinkedIn** button that opens a LinkedIn search so you can check by hand.
+LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
+
+### Updating from an earlier version
+If your database was set up before the publications/events/page-watch update, paste `supabase/update-2.sql` into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you.
 
 ---
 
@@ -47,7 +51,7 @@ Secrets are encrypted. Nobody, including you, can read them back from GitHub, an
 In GitHub, open `web/config.js`, click the pencil icon, and fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the **publishable** key). Commit.
 
 ### 5. Run the first collection
-Go to **Actions → Collect news → Run workflow → Run workflow**. It takes a few minutes. Click the run to see a table of every PAO and source with what it found.
+Go to **Actions → Collect news → Run workflow → Run workflow**. It takes a few minutes. Click the run: its summary page shows a table of every PAO and source with what it found, and lists any leadership/contact changes at the top.
 
 > The first scan of each website saves its existing links as **"first scan"** and hides them by default, so you don't get 80 old links per site on day one. From the next run onward, only genuinely new links show up. Tick **Include first-scan links** on the page to see the hidden ones.
 
@@ -72,6 +76,10 @@ In Supabase, go to **Authentication → Users → Invite user** and invite each 
 ## Day to day
 
 - The collection runs automatically every day at about **5:40am Malaysia time**.
+- **Leadership / contact changes** appear as red-labelled items under the PAO, showing the lines that were removed and added. **Show before / now** shows the full list. The first time a page is checked it's only remembered, so changes show up from the second day. Always open the page before updating your records: a page redesign can look like a new name.
+- Pages scanned for the first time (e.g. a newly found Publications page) are saved as **first scan**, so old publications don't flood in as new.
+- Each item has a **type** (News / Event / Publication). It's set automatically; change it with the little dropdown on the item if it's wrong. Use the type tick-boxes in the filter bar to show only what you need.
+- **Translate** translates the headline (works for every source). **Translate page** opens the whole website page translated.
 - The **coloured dots** in the sidebar show health: green means fine, amber means needs a look, red means a source failed. The red/amber notes inside each PAO's box say exactly what's wrong.
 - An amber "**No new links for 60+ days**" note means that site may have changed in a way that hides new posts. Open the site and check.
 - **Export CSV** downloads exactly what's on screen. Set "Show: Relevant only" and the period first to get your newsletter shortlist.
@@ -85,12 +93,16 @@ All of these are edits to **`config/paos.csv`**. Open it in GitHub, click the pe
 | A PAO changed its website address | Update the `website` column. (If the old address redirects, the health note will tell you the new one.) |
 | Site found no news / grabbed the wrong page | Put the exact news page address in `news_url`. Separate several pages with `\|`. |
 | Site has an RSS feed | Put the feed address in `feed_url`. This is the most reliable option. |
+| Publications or events page not picked up | Add it to `news_url` with its type in front: `publications>https://...` or `events>https://...` (pages without a type count as news). |
+| Page watch picked the wrong leadership page | Put the right page(s) in `leadership_url` (e.g. the page listing the President). Separate several with `\|`. |
+| Page watch picked the wrong contact page | Put the right page in `contact_url`. |
+| PAO posts mainly on Facebook | Put its Facebook page address in `facebook` to get a Facebook button. |
 | Too many junk links from one site | Put a CSS selector in `link_selector` (e.g. `.news-list a`). Only those links are used. Ask Claude if unsure. |
 | Google News results are off-target | Edit `search_terms`. Terms are separated by `\|`, and quotes mean an exact phrase. Start a term with a locale such as `zh-HK>` to search another country's edition. |
 | Add a new PAO | Add a row with a new short `id` (lowercase, no spaces). Copy another row's format. |
 | Stop monitoring one | Set `active` to `no`. Don't delete the row. |
 
-**Columns:** `id`, `group` (Member / Associate / Affiliate / Stakeholder), `jurisdiction`, `name`, `abbr`, `website`, `news_url`, `feed_url`, `search_terms`, `news_locale` (Google News edition, e.g. `en-IN`, `ja-JP`, `zh-CN`), `link_selector`, `active`, `notes`.
+**Columns:** `id`, `group` (Member / Associate / Affiliate / Stakeholder), `jurisdiction`, `name`, `abbr`, `website`, `news_url`, `feed_url`, `search_terms`, `news_locale` (Google News edition, e.g. `en-IN`, `ja-JP`, `zh-CN`), `link_selector`, `active`, `notes`, `facebook`, `leadership_url`, `contact_url`.
 
 **Send to Claude instead** if a site needs JavaScript to show its news (the health note says so), a whole source keeps failing for every PAO, or anything involving the code itself. Include the error text from the Actions run.
 

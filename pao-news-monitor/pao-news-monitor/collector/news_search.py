@@ -44,7 +44,7 @@ def google_news_url(term, locale):
     return f"https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={ceid}"
 
 
-def parse_google_feed(content, pao, term):
+def parse_google_feed(content, pao, term, language=""):
     feed = feedparser.parse(content)
     out = []
     for e in feed.entries:
@@ -63,7 +63,7 @@ def parse_google_feed(content, pao, term):
         out.append(Item(
             id=make_id(pao.id, "google_news", e.get("id") or link), pao_id=pao.id, source="google_news",
             title=title, url=link, published_at=iso(published), source_name=src,
-            snippet=f'Search: {term}', language=""))
+            snippet=f'Search: {term}', language=language))
     return out
 
 
@@ -81,7 +81,7 @@ def collect_google(pao):
             if r.status >= 400:
                 errors.append(f"{term}: error {r.status}")
                 continue
-            res.items += parse_google_feed(r.content, pao, term)
+            res.items += parse_google_feed(r.content, pao, term, (locale or "en").split("-")[0].lower())
         except Exception as e:  # noqa: BLE001
             errors.append(f"{term}: {type(e).__name__}")
     uniq = {}

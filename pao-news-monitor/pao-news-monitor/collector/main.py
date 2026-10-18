@@ -3,38 +3,50 @@
     python -m collector                 # normal run (saves to Supabase)
     python -m collector --dry-run       # save to data/local.json instead
     python -m collector --only icai,picpa
-    python -m collector --sources website,google_news
+    python -m collector --sources website,google_news,page_watch
 """
 import argparse
 import logging
+import os
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-from . import browser, email_inbox, news_search, websites
+from . import browser, email_inbox, news_search, pagewatch, websites
 from .common import iso, load_paos, log, now_utc
 from .store import get_store
 
-ALL_SOURCES = ["website", "google_news", "newsapi", "email"]
+ALL_SOURCES = ["website", "google_news", "newsapi", "email", "page_watch"]
 LAYOUT_CHANGE_SHARE = 0.7   # if >70% of a site's links are suddenly new, the site was probably redesigned
 LAYOUT_CHANGE_MIN = 10
-WARN_WORDS = ("redirects", "certificate", "no links", "no article links", "JavaScript", "failed", "error")
+WARN_WORDS = ("redirects", "certificate", "no links", "no article links", "JavaScript", "failed", "error",
+              "no leadership page", "no contact page", "couldn't open")
+NEW_ITEM_FIELDS = ("kind",)          # need supabase/update-2.sql
+NEW_PAO_FIELDS = ("facebook", "lang")
 
 
-def pao_rows(paos):
+def pao_rows(paos, new_fields=True):
     rows = [dict(id=p.id, grp=p.group, jurisdiction=p.jurisdiction, name=p.name, abbr=p.abbr,
-                 website=p.website, active=p.is_active, notes=p.notes, sort_order=i)
+                 website=p.website, active=p.is_active, notes=p.notes, sort_order=i,
+                 facebook=p.facebook or None, lang=p.language)
             for i, p in enumerate(paos)]
     rows.append(dict(id=email_inbox.UNMATCHED_ID, grp="Inbox", jurisdiction="", name="Unmatched emails",
                      abbr="Inbox", website="", active=True,
-                     notes="Emails that couldn't be matched to a PAO", sort_order=len(paos)))
+                     notes="Emails that couldn't be matched to a PAO", sort_order=len(paos),
+                     facebook=None, lang=""))
+    if not new_fields:
+        for r in rows:
+            for k in NEW_PAO_FIELDS:
+                r.pop(k)
     return rows
 
 
-def apply_baseline(res, health, store):
+def apply_baseline(res, health, store, known_pages=None):
     """Website items: the first scan of a site is 'baseline' (hidden by default),
-    so you don't get 80 old links on day one. Same if a redesign makes most links new."""
+    so you don't get 80 old links on day one. Same for a page scanned for the
+    first time (e.g. a newly found Publications page), and if a redesign makes
+    most links new."""
     if res.source != "website" or not res.items:
         return
     prev = health.get((res.pao_id, "website"))
@@ -50,6 +62,17 @@ def apply_baseline(res, health, store):
             it.is_baseline = True
         res.message = (f"Most links ({len(new)}/{len(res.items)}) are new - the site was probably redesigned; "
                        "new links saved as baseline. ") + res.message
+        return
+    known = {url for (pid, url, kind) in (known_pages or {}) if pid == res.pao_id and kind.startswith("listing:")}
+    if known:
+        fresh = {p["url"] for p in res.pages} - known
+    else:  # first run with page tracking: news pages + homepage were already being scanned before
+        fresh = {p["url"] for p in res.pages if p["kind"] != "listing:news"}
+    hidden = [it for it in new if it.found_on in fresh]
+    for it in hidden:
+        it.is_baseline = True
+    if hidden:
+        res.message = f"{len(hidden)} link(s) from newly scanned page(s) saved as first scan. " + res.message
 
 
 def health_row(res, prev, new_count, now):
@@ -73,9 +96,9 @@ def health_row(res, prev, new_count, now):
     )
 
 
-def retry_in_browser(results, paos_by_id):
+def retry_in_browser(results, paos_by_id, prev_pages=None):
     """Second chance for websites that blocked us or need JavaScript."""
-    todo = [i for i, r in enumerate(results) if r.source == "website" and r.needs_browser]
+    todo = [i for i, r in enumerate(results) if r.source in ("website", "page_watch") and r.needs_browser]
     if not todo:
         return
     if not browser.available():
@@ -86,8 +109,12 @@ def retry_in_browser(results, paos_by_id):
         with browser.Browser() as b:
             for i in todo:
                 old = results[i]
-                new = websites.collect(paos_by_id[old.pao_id], fetcher=b.fetch, browser_mode=True)
-                if new.items:
+                pao = paos_by_id[old.pao_id]
+                if old.source == "page_watch":
+                    new = pagewatch.collect(pao, prev_pages or {}, fetcher=b.fetch, browser_mode=True)
+                else:
+                    new = websites.collect(pao, fetcher=b.fetch, browser_mode=True)
+                if new.items or (old.source == "page_watch" and new.ok and new.pages):
                     new.message = "Read with a real browser. " + new.message
                     results[i] = new
                 else:
@@ -106,8 +133,14 @@ def run(only=None, sources=None, dry_run=False, workers=8):
     if only and not paos:
         sys.exit(f"No active PAO with id in {sorted(only)} - check config/paos.csv")
     store = get_store(dry_run)
-    store.save_paos(pao_rows(all_paos))
+    problems = store.schema_problems()
+    if problems:
+        print(f"::warning::Database needs updating (missing {', '.join(problems)}). Paste supabase/update-2.sql "
+              "into Supabase > SQL Editor and Run. Until then page watch is off and item types aren't saved.")
+        sources = [s for s in sources if s != "page_watch"]
+    store.save_paos(pao_rows(all_paos, new_fields=not problems))
     health = store.load_health()
+    prev_pages = {} if problems else store.load_pages()
     newsapi = news_search.NewsAPI()
     lock = threading.Lock()
     results = []
@@ -121,13 +154,15 @@ def run(only=None, sources=None, dry_run=False, workers=8):
         if "newsapi" in sources:
             with lock:
                 out.append(newsapi.collect(pao))
+        if "page_watch" in sources:
+            out.append(pagewatch.collect(pao, prev_pages))
         return out
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for out in pool.map(one, paos):
             results.extend(out)
 
-    retry_in_browser(results, {p.id: p for p in paos})
+    retry_in_browser(results, {p.id: p for p in paos}, prev_pages)
 
     email_items = []
     if "email" in sources:
@@ -139,12 +174,28 @@ def run(only=None, sources=None, dry_run=False, workers=8):
         results.append(inbox_res)
 
     for res in results:
-        apply_baseline(res, health, store)
+        apply_baseline(res, health, store, prev_pages)
 
     rows = [it.row() for res in results for it in res.items] + [it.row() for it in email_items]
     for r in rows:
         r["first_seen_at"] = iso(started)
+        if problems:
+            for k in NEW_ITEM_FIELDS:
+                r.pop(k, None)
     inserted = store.insert_items(rows) if rows else set()
+
+    if not problems:
+        page_rows = []
+        for res in results:
+            for row in res.pages:
+                row = dict(row)
+                row.setdefault("last_checked_at", iso(started))
+                if (row["pao_id"], row["url"], row["kind"]) not in prev_pages:
+                    row.setdefault("first_seen_at", iso(started))
+                page_rows.append(row)
+        # one row per page (a page can show up for two PAOs' lists only via its own pao_id)
+        uniq = {(r["pao_id"], r["url"], r["kind"]): r for r in page_rows}
+        store.save_pages(list(uniq.values()))
 
     health_rows = []
     for res in results:
@@ -160,6 +211,8 @@ def run(only=None, sources=None, dry_run=False, workers=8):
         "errors": sum(1 for h in health_rows if h["status"] == "error"),
         "warnings": sum(1 for h in health_rows if h["status"] == "warning"),
         "only": sorted(only) if only else None, "dry_run": dry_run,
+        "changes": sum(1 for r in rows if r["id"] in inserted and r["source"] == "page_watch"),
+        "db_update_needed": problems or None,
     }
     store.log_run({"started_at": iso(started), "finished_at": iso(now_utc()), "summary": summary})
 
@@ -168,7 +221,31 @@ def run(only=None, sources=None, dry_run=False, workers=8):
     for h in sorted(health_rows, key=lambda h: (h["pao_id"], h["source"])):
         print(f"{h['pao_id'][:15]:<16}{h['source']:<13}{h['status']:<9}{h['items_found']:>6}{h['items_new']:>5}  {h['message'][:110]}")
     print(f"\nDone: {summary}")
+    write_step_summary(health_rows, summary, rows, inserted)
     return summary
+
+
+def write_step_summary(health_rows, summary, rows, inserted):
+    """Same report as a table on the GitHub Actions run page (no need to open the log)."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    icon = {"ok": "🟢", "warning": "🟠", "error": "🔴", "skipped": "⚪"}
+    out = [f"### {summary['new']} new item(s), {summary.get('changes') or 0} leadership/contact change(s), "
+           f"{summary['errors']} error(s), {summary['warnings']} warning(s)", ""]
+    if summary.get("db_update_needed"):
+        out += [f"> **Database needs updating** (missing {', '.join(summary['db_update_needed'])}): paste "
+                "`supabase/update-2.sql` into Supabase > SQL Editor and Run.", ""]
+    changes = [r for r in rows if r["id"] in inserted and r["source"] == "page_watch"]
+    if changes:
+        out += ["**Leadership / contact changes**", ""] + [f"- `{r['pao_id']}` {r['title']}" for r in changes] + [""]
+    out += ["| PAO | source | status | found | new | message |", "|---|---|---|---:|---:|---|"]
+    for h in sorted(health_rows, key=lambda h: (h["pao_id"], h["source"])):
+        msg = h["message"].replace("|", "/").replace("\n", " ")[:220]
+        out.append(f"| {h['pao_id']} | {h['source']} | {icon.get(h['status'], '')} {h['status']} | "
+                   f"{h['items_found']} | {h['items_new']} | {msg} |")
+    with open(path, "a", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
 
 
 def cli(argv=None):

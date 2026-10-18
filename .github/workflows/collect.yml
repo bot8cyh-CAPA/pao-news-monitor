@@ -10,7 +10,7 @@ on:
         required: false
         default: ""
       sources:
-        description: "Only these sources (blank = all): website,google_news,newsapi,email"
+        description: "Only these sources (blank = all): website,google_news,newsapi,email,page_watch"
         required: false
         default: ""
 

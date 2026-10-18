@@ -187,6 +187,8 @@ def test_full_run_baseline_then_new(monkeypatch, tmp_path):
     pages = {"https://www.icai.org/news": NEWS, "https://www.icai.org": HOME, "https://news.google.com": GOOGLE_RSS}
     monkeypatch.setattr(websites, "fetch", fake_fetch(pages))
     monkeypatch.setattr(news_search, "fetch", fake_fetch(pages))
+    from collector import pagewatch
+    monkeypatch.setattr(pagewatch, "fetch", fake_fetch(pages))
 
     s1 = main.run(dry_run=True)
     data = json.loads((tmp_path / "data" / "local.json").read_text())

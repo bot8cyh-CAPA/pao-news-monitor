@@ -7,8 +7,15 @@ No per-site code. For each site, in order:
      automatically from homepage links like "News", "Press", "公告", "お知らせ" -
      and collect every article-looking link on them.
 
+Besides news pages, each site's Publications and Events pages are scanned
+too, and every item is labelled news / events / publications (from the page it
+was found on, refined by its address, e.g. /event/ or .pdf).
+
 Every link not seen before becomes an item. Nothing is filtered by topic:
 your team decides what matters in the web page.
+
+news_url can list pages of any type; start one with a type to label it, e.g.
+    https://x.org/news|publications>https://x.org/library|events>https://x.org/cpd
 
 If a site's results are too noisy, put a CSS selector in the link_selector
 column of paos.csv (e.g. ".news-list a") and only those links are used.
@@ -28,7 +35,7 @@ SOURCE = "website"
 # Words that mark a link to a news / announcements section (many languages).
 NEWS_WORDS = [
     "news", "press", "media", "announcement", "notice", "circular", "update", "latest",
-    "bulletin", "newsroom", "release", "events", "whats-new", "what's new",
+    "bulletin", "newsroom", "release", "whats-new", "what's new",
     "新闻", "新聞", "公告", "通知", "动态", "動態", "资讯", "資訊", "最新",
     "お知らせ", "ニュース", "新着", "뉴스", "공지", "소식", "알림",
     "tin tức", "tin-tuc", "thông báo", "thong-bao",
@@ -36,6 +43,59 @@ NEWS_WORDS = [
     "мэдээ", "समाचार", "सूचना",
 ]
 _NEWS_RX = re.compile("|".join(re.escape(w) for w in NEWS_WORDS), re.I)
+
+PUBLICATION_WORDS = [
+    "publication", "journal", "magazine", "newsletter", "e-book", "ebook", "resources", "library",
+    "research", "reports", "insights", "thought leadership",
+    "刊物", "出版", "期刊", "杂志", "雜誌", "会刊", "會刊", "刊行物", "出版物", "간행물", "발간", "출판",
+    "ấn phẩm", "an-pham", "tạp chí", "tap-chi", "publications", "revue", "प्रकाशन", "पत्रिका",
+]
+EVENT_WORDS = [
+    "event", "seminar", "webinar", "conference", "calendar", "workshop", "forum", "cpd", "cpe",
+    "summit", "congress",
+    "活动", "活動", "研讨会", "研討會", "讲座", "講座", "イベント", "セミナー", "研修", "행사", "세미나", "교육",
+    "sự kiện", "su-kien", "hội thảo", "hoi-thao", "événement", "evenement", "congrès", "कार्यक्रम",
+]
+_PUB_RX = re.compile("|".join(re.escape(w) for w in PUBLICATION_WORDS), re.I)
+_EVENT_RX = re.compile("|".join(re.escape(w) for w in EVENT_WORDS), re.I)
+# item addresses that clearly say what they are
+_ITEM_EVENT_RX = re.compile(r"/(events?|seminars?|webinars?|conferences?|workshops?|cpd|cpe)(/|-|_|\b)", re.I)
+_ITEM_PUB_RX = re.compile(r"/(publications?|journals?|magazines?|newsletters?|reports?|library|resources)(/|-|_|\b)|\.pdf($|\?)", re.I)
+KINDS = ("news", "publications", "events")
+MAX_PAGES = {"news": 3, "publications": 2, "events": 2}
+
+
+def page_kind(text, path=""):
+    """What kind of listing a menu link points to (None if not a listing)."""
+    for hay in (text, path):
+        if not hay:
+            continue
+        pub, ev, news = _PUB_RX.search(hay), _EVENT_RX.search(hay), _NEWS_RX.search(hay)
+        if pub and not news:
+            return "publications"
+        if ev and not news:
+            return "events"
+        if news:
+            return "news"
+    return None
+
+
+def item_kind(url, page_kind_):
+    """Refine an item's kind from its own address."""
+    path = urlsplit(url).path
+    if _ITEM_EVENT_RX.search(path):
+        return "events"
+    if _ITEM_PUB_RX.search(url):
+        return "publications"
+    return page_kind_ or "news"
+
+
+def parse_page_spec(spec):
+    """'events>https://...' -> ('events', url); plain url -> ('news', url)."""
+    head, sep, rest = spec.partition(">")
+    if sep and head.strip().lower() in KINDS and "//" not in head:
+        return head.strip().lower(), rest.strip()
+    return "news", spec.strip()
 
 # Links that are never news.
 SKIP_RX = re.compile(
@@ -83,7 +143,8 @@ def parse_feed(content, pao, base_url):
         summary = clean(BeautifulSoup(e.get("summary", ""), "lxml").get_text(" "), 500) if e.get("summary") else ""
         items.append(Item(id=make_id(pao.id, SOURCE, normalize_url(link)), pao_id=pao.id, source=SOURCE,
                           title=title, url=link, published_at=iso(published), snippet=summary,
-                          source_name="Website feed", language=pao.language))
+                          source_name="Website feed", language=pao.language,
+                          kind=item_kind(link, "news"), found_on=base_url))
     return items
 
 
@@ -96,23 +157,36 @@ def find_feed_links(soup, base_url):
     return out
 
 
-def find_news_pages(soup, base_url, site_domain):
-    found = []
+def find_listing_pages(soup, base_url, site_domain):
+    """Menu links to news, publications and events pages: {kind: [url, ...]}."""
+    found = {k: [] for k in KINDS}
+    seen = {normalize_url(base_url)}
     for a in soup.find_all("a", href=True):
         href = urljoin(base_url, a["href"])
         text = clean(a.get_text(" "))
         if not _same_site(href, site_domain) or SKIP_RX.search(href) or SKIP_EXT.search(href):
             continue
-        if len(text) <= 40 and (_NEWS_RX.search(text) or _NEWS_RX.search(urlsplit(href).path)):
-            n = normalize_url(href)
-            if n != normalize_url(base_url) and n not in [normalize_url(f) for f in found]:
-                found.append(href)
-    # prefer the most "newsy" looking ones
-    found.sort(key=lambda u: (0 if re.search(r"news|press|media|公告|お知らせ|뉴스", u, re.I) else 1, len(u)))
-    return found[:MAX_NEWS_PAGES]
+        if len(text) > 40:
+            continue
+        kind = page_kind(text, urlsplit(href).path)
+        n = normalize_url(href)
+        if kind and n not in seen:
+            seen.add(n)
+            found[kind].append(href)
+    prefer = {"news": r"news|press|media|公告|お知らせ|뉴스", "publications": r"publication|journal|magazine",
+              "events": r"event|seminar|webinar"}
+    for kind, urls in found.items():
+        urls.sort(key=lambda u: (0 if re.search(prefer[kind], u, re.I) else 1, len(u)))
+        del urls[MAX_PAGES[kind]:]
+    return found
 
 
-def extract_links(html, page_url, pao, site_domain, selector="", relaxed=False):
+def find_news_pages(soup, base_url, site_domain):
+    """News pages only (kept for older callers)."""
+    return find_listing_pages(soup, base_url, site_domain)["news"]
+
+
+def extract_links(html, page_url, pao, site_domain, selector="", relaxed=False, kind="news"):
     """Collect article-looking links. Strict mode wants a news-like URL
     (dates, ids, 'news', .pdf...). Relaxed mode drops that and relies on
     headline-like link text instead - used when strict finds almost nothing."""
@@ -148,7 +222,8 @@ def extract_links(html, page_url, pao, site_domain, selector="", relaxed=False):
         date = guess_date(clean(ctx.get_text(" "), 400)) or guess_date(url)
         items.append(Item(id=make_id(pao.id, SOURCE, key), pao_id=pao.id, source=SOURCE,
                           title=title[:300] or url, url=url, published_at=iso(date),
-                          source_name=urlsplit(page_url).netloc, language=pao.language))
+                          source_name=urlsplit(page_url).netloc, language=pao.language,
+                          kind=item_kind(url, kind), found_on=page_url))
         if len(items) >= MAX_LINKS_PER_PAGE:
             break
     return items
@@ -167,24 +242,36 @@ def collect(pao, fetcher=None, browser_mode=False):
         res.skipped, res.message = True, "No website listed"
         return res
     notes = []
+    found = {}          # item id -> Item
+    have_feed = False
     try:
-        # 1. explicit feed
+        # 1. explicit feed (covers the news; publications/events pages are still scanned below)
         if not browser_mode:
             for feed_url in pao.split(pao.feed_url):
                 r = fetch(feed_url)
-                res.items += parse_feed(r.content, pao, r.url)
-            if res.items:
-                res.message = f"Feed: {len(res.items)} entries"
-                return res
+                for it in parse_feed(r.content, pao, r.url):
+                    found.setdefault(it.id, it)
+            if found:
+                have_feed = True
+                notes.append(f"Feed: {len(found)} entries")
 
-        home_url = pao.website or pao.split(pao.news_url)[0]
+        explicit = [parse_page_spec(x) for x in pao.split(pao.news_url)]
+        home_url = pao.website or (explicit[0][1] if explicit else "")
         try:
             home = fetcher(home_url)
         except Exception as e:  # noqa: BLE001  (timeouts, refused connections)
+            if have_feed:
+                res.items = list(found.values())
+                res.message = "; ".join(notes + [f"homepage not reachable ({type(e).__name__}), publications/events not checked"])
+                return res
             res.ok, res.needs_browser = False, not browser_mode
             res.message = f"Website not reachable ({type(e).__name__}): {clean(str(e), 150)}"
             return res
         if home.status >= 400:
+            if have_feed:
+                res.items = list(found.values())
+                res.message = "; ".join(notes + [f"homepage error {home.status}, publications/events not checked"])
+                return res
             res.ok = False
             res.needs_browser = not browser_mode and (home.status in BLOCKED_STATUSES)
             hint = " (site blocks automated visitors)" if home.status in BLOCKED_STATUSES else ""
@@ -199,7 +286,7 @@ def collect(pao, fetcher=None, browser_mode=False):
         visible_text = len(clean(soup.get_text(" ")))
 
         # 2. advertised feed
-        if not pao.link_selector and not browser_mode:
+        if not have_feed and not pao.link_selector and not browser_mode:
             for feed_url in find_feed_links(soup, home.url)[:2]:
                 try:
                     r = fetch(feed_url)
@@ -208,44 +295,52 @@ def collect(pao, fetcher=None, browser_mode=False):
                     log.info("%s feed %s failed: %s", pao.id, feed_url, e)
                     continue
                 if got:
-                    res.items += got
+                    for it in got:
+                        found.setdefault(it.id, it)
+                    have_feed = True
                     notes.insert(0, f"Feed found automatically: {feed_url}")
                     break
-            if res.items:
-                res.message = "; ".join(notes)
-                return res
 
-        # 3. news pages
-        explicit = pao.split(pao.news_url)
-        pages = explicit or find_news_pages(soup, home.url, site_domain)
-        fetched = []  # (url, html)
-        for page_url in pages:
+        # 3. listing pages: news (unless a feed covers it), publications, events
+        discovered = find_listing_pages(soup, home.url, site_domain)
+        explicit_kinds = {k for k, _ in explicit}
+        pages = list(explicit)
+        for kind in KINDS:
+            if kind in explicit_kinds or (kind == "news" and (have_feed or explicit)):
+                continue
+            pages += [(kind, u) for u in discovered[kind]]
+        fetched = []  # (url, html, kind)
+        for kind, page_url in pages:
             try:
                 r = fetcher(page_url)
                 if r.status >= 400:
                     # a page we guessed can be a dead menu link - only flag pages you set yourself
-                    notes.append(f"news page error {r.status}: {page_url}" if explicit
+                    notes.append(f"{kind} page error {r.status}: {page_url}" if (kind, page_url) in explicit
                                  else f"skipped a dead link ({r.status})")
                     continue
-                fetched.append((r.url, r.text))
+                fetched.append((r.url, r.text, kind))
             except Exception as e:  # noqa: BLE001
-                notes.append(f"news page failed ({type(e).__name__}): {page_url}")
-        fetched.append((home.url, home.text))  # homepage itself often lists the latest news
+                notes.append(f"{kind} page failed ({type(e).__name__}): {page_url}")
+        if not have_feed:
+            fetched.append((home.url, home.text, "news"))  # homepage itself often lists the latest news
 
         def gather(relaxed):
             out = {}
-            for url, html in fetched:
-                for it in extract_links(html, url, pao, site_domain, pao.link_selector, relaxed):
+            for url, html, kind in fetched:
+                for it in extract_links(html, url, pao, site_domain, pao.link_selector, relaxed, kind):
                     out.setdefault(it.id, it)
             return out
 
-        found = gather(relaxed=False)
-        if len(found) < MIN_STRICT_LINKS and not pao.link_selector:
+        strict = gather(relaxed=False)
+        if len(strict) < MIN_STRICT_LINKS and not pao.link_selector and not have_feed:
             loose = gather(relaxed=True)
-            if len(loose) > len(found):
+            if len(loose) > len(strict):
                 notes.append("used loose link matching (review for junk links)")
-                found = {**loose, **found}
+                strict = {**loose, **strict}
+        for k, it in strict.items():
+            found.setdefault(k, it)
         res.items = list(found.values())
+        res.pages = [{"pao_id": pao.id, "url": url, "kind": "listing:" + kind} for url, _, kind in fetched]
 
         if not res.items:
             if visible_text < 800:
@@ -255,9 +350,13 @@ def collect(pao, fetcher=None, browser_mode=False):
             else:
                 notes.append("no article links found - set news_url (or link_selector) in paos.csv")
             res.needs_browser = not browser_mode
-        n_news = len(fetched) - 1
-        pages_note = f"Scanned {n_news} news page(s) + homepage" if n_news else "Scanned homepage only (no news page found)"
-        res.message = "; ".join([pages_note] + notes)
+        counts = {k: sum(1 for _, _, kk in fetched if kk == k) for k in KINDS}
+        if not have_feed:
+            counts["news"] -= 1  # the homepage
+        scanned = ", ".join(f"{n} {k}" for k, n in counts.items() if n)
+        pages_note = (f"Scanned {scanned} page(s)" + ("" if have_feed else " + homepage")) if scanned \
+            else ("Scanned homepage only (no news page found)" if not have_feed else "")
+        res.message = "; ".join(x for x in [pages_note] + notes if x)
     except Exception as e:  # noqa: BLE001
         res.ok = False
         res.message = f"{type(e).__name__}: {clean(str(e), 200)}"

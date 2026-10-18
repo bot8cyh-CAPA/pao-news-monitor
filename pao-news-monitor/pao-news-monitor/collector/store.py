@@ -27,6 +27,38 @@ class SupabaseStore:
         rows = self._req("GET", "/source_health?select=*").json()
         return {(r["pao_id"], r["source"]): r for r in rows}
 
+    def schema_problems(self):
+        """What's missing from the database (supabase/update-2.sql not run yet)."""
+        problems = []
+        for path, what in (("/items?select=kind&limit=1", "items.kind column"),
+                           ("/paos?select=facebook,lang&limit=1", "paos.facebook/lang columns"),
+                           ("/watched_pages?select=url&limit=1", "watched_pages table")):
+            try:
+                self._req("GET", path)
+            except RuntimeError:
+                problems.append(what)
+        return problems
+
+    def load_pages(self):
+        rows = []
+        for start in range(0, 100000, 1000):
+            got = self._req("GET", "/watched_pages?select=pao_id,url,kind,snapshot,first_seen_at",
+                            headers={"Range": f"{start}-{start + 999}"}).json()
+            rows += got
+            if len(got) < 1000:
+                break
+        return {(r["pao_id"], r["url"], r["kind"]): r for r in rows}
+
+    def save_pages(self, rows):
+        # rows with different columns must go in separate requests
+        groups = {}
+        for r in rows:
+            groups.setdefault(tuple(sorted(r)), []).append(r)
+        for group in groups.values():
+            for i in range(0, len(group), 200):
+                self._req("POST", "/watched_pages?on_conflict=pao_id,url,kind", json=group[i:i + 200],
+                          headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
+
     def existing_ids(self, ids):
         found = set()
         ids = list(ids)
@@ -64,9 +96,10 @@ class JsonStore:
 
     def __init__(self, path=None):
         self.path = Path(path or ROOT / "data" / "local.json")
-        self.data = {"paos": {}, "items": {}, "health": {}, "runs": []}
+        self.data = {"paos": {}, "items": {}, "health": {}, "runs": [], "pages": {}}
         if self.path.exists():
             self.data = json.loads(self.path.read_text(encoding="utf-8"))
+        self.data.setdefault("pages", {})
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,6 +110,18 @@ class JsonStore:
 
     def existing_ids(self, ids):
         return {i for i in ids if i in self.data["items"]}
+
+    def schema_problems(self):
+        return []
+
+    def load_pages(self):
+        return {tuple(k.split("::", 2)): v for k, v in self.data["pages"].items()}
+
+    def save_pages(self, rows):
+        for r in rows:
+            key = f'{r["pao_id"]}::{r["url"]}::{r["kind"]}'
+            self.data["pages"][key] = {**self.data["pages"].get(key, {}), **r}
+        self._save()
 
     def save_paos(self, rows):
         for r in rows:

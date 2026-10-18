@@ -44,6 +44,9 @@ class PAO:
     link_selector: str = ""
     active: str = "yes"
     notes: str = ""
+    facebook: str = ""          # shown as a manual-check button (Facebook isn't scraped)
+    leadership_url: str = ""    # page(s) listing the President / CEO; found automatically if blank
+    contact_url: str = ""       # contact / address page; found automatically if blank
     extra: dict = field(default_factory=dict)
 
     @property
@@ -223,9 +226,13 @@ class Item:
     source_name: str = ""
     language: str = ""
     is_baseline: bool = False
+    kind: str = "news"     # news | events | publications | leadership | contact
+    found_on: str = ""     # listing page the link was found on (not saved)
+
+    NOT_SAVED = ("found_on",)
 
     def row(self):
-        return {k: getattr(self, k) for k in self.__dataclass_fields__}
+        return {k: getattr(self, k) for k in self.__dataclass_fields__ if k not in self.NOT_SAVED}
 
 
 @dataclass
@@ -238,3 +245,4 @@ class SourceResult:
     message: str = ""
     skipped: bool = False
     needs_browser: bool = False   # website blocked us or needs JavaScript: retry in a real browser
+    pages: list = field(default_factory=list)  # watched_pages rows to save (listing pages, page-watch snapshots)
