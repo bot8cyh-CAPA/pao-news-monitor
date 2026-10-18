@@ -99,7 +99,8 @@ class Chain:
                     try:
                         text = r.json()["choices"][0]["message"]["content"] or ""
                     except (ValueError, KeyError, IndexError, TypeError):
-                        self.log.append(f"{spec}: unreadable answer")
+                        ct = r.headers.get("content-type", "") if hasattr(r, "headers") else ""
+                        self.log.append(f"{spec}: unreadable answer ({ct}) {r.text[:160]!r} via {getattr(r, 'url', url)}")
                         break
                     if text.strip():
                         self.used.append(spec)
