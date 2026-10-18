@@ -18,7 +18,7 @@
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined };
+  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team" };
   let db = null;
 
   // ---------- data layer ----------
@@ -28,6 +28,7 @@
         const res = await fetch("demo-data.json");
         this.demo = await res.json();
         state.user = { email: "demo@example.org" };
+        state.role = "admin";
         return true;
       }
       await loadScript(SUPABASE_JS);
@@ -41,6 +42,11 @@
         if (had && !state.user) showLogin();
       });
       return !!state.user;
+    },
+    async loadRole() {
+      if (DEMO || !state.user) return;
+      const { data, error } = await db.rpc("my_role");
+      state.role = error ? "team" : (data || "team");   // database not updated yet: everyone is team
     },
     async signIn(email) {
       const { error } = await db.auth.signInWithOtp({
@@ -278,7 +284,7 @@
         <div class="pao-tools">
           ${isInbox ? "" : `<a class="btn ghost small" target="_blank" rel="noopener" title="Check LinkedIn by hand" href="https://www.linkedin.com/search/results/content/?keywords=${searchName}&sortBy=%22date_posted%22">LinkedIn</a>`}
           ${p.facebook ? `<a class="btn ghost small" target="_blank" rel="noopener" title="Check their Facebook page by hand" href="${esc(p.facebook)}">Facebook</a>` : ""}
-          <button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>
+          ${state.role === "viewer" ? "" : `<button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>`}
         </div>
       </header>
       ${hs.length ? `<div class="health">${hs.map((h) => `<span class="chip ${h.level}" title="${esc(h.text)}">${esc(SOURCE_LABEL[h.src])}${h.when ? ` · ${ago(h.when)}` : ""}</span>`).join("")}
@@ -288,6 +294,7 @@
   }
 
   function card(it) {
+    const ro = state.role === "viewer" ? " disabled" : "";
     const reviewed = it.reviewed_by ? `<span class="muted small">by ${esc(it.reviewed_by.split("@")[0])} ${ago(it.reviewed_at)}</span>` : "";
     return `<li class="item ${it.relevance || ""}" data-id="${esc(it.id)}">
       <div class="meta">
@@ -305,12 +312,12 @@
       ${it.source === "page_watch" ? `<button class="link small" data-content="${esc(it.id)}" data-show="Show before / now" data-hide="Hide before / now" type="button">Show before / now</button><pre class="full" hidden></pre>` : ""}
       <div class="actions">
         <div class="seg" role="group" aria-label="Relevance">
-          <button type="button" data-rel="relevant" aria-pressed="${it.relevance === "relevant"}">Relevant</button>
-          <button type="button" data-rel="not_relevant" aria-pressed="${it.relevance === "not_relevant"}">Not relevant</button>
+          <button type="button" data-rel="relevant" aria-pressed="${it.relevance === "relevant"}"${ro}>Relevant</button>
+          <button type="button" data-rel="not_relevant" aria-pressed="${it.relevance === "not_relevant"}"${ro}>Not relevant</button>
         </div>
-        <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category">
-        <input class="notes" value="${esc(it.notes || "")}" placeholder="Notes" aria-label="Notes">
-        ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type">${["news", "events", "publications"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
+        <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category"${ro}>
+        <input class="notes" value="${esc(it.notes || "")}" placeholder="Notes" aria-label="Notes"${ro}>
+        ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type"${ro}>${["news", "events", "publications"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
         ${nonEnglish(it) ? `<button class="link small" type="button" data-translate="${esc(it.id)}" title="Show the headline in English (Google Translate)">${showingEnglish.has(it.id) ? "Show original" : "Translate"}</button>` : ""}
         ${nonEnglish(it) && canTranslatePage(it) ? `<a class="link small" href="${esc(pageTranslateUrl(it.url))}" target="_blank" rel="noopener" title="Open the whole page translated">Translate page</a>` : ""}
         ${reviewed}
@@ -321,7 +328,8 @@
   function renderHeader() {
     const r = state.lastRun;
     $("#last-run").textContent = r ? `Last checked ${ago(r.finished_at)} · ${r.summary?.new ?? 0} new that run` : "Not run yet";
-    $("#user").textContent = state.user?.email || "";
+    $("#user").textContent = (state.user?.email || "") + (state.role && state.role !== "team" ? ` (${state.role})` : "");
+    document.body.dataset.role = state.role;
     const inbox = state.health.find((h) => h.pao_id === "_inbox" && h.source === "email");
     const el = $("#inbox-status");
     if (!inbox) { el.hidden = true; return; }
@@ -489,6 +497,7 @@
   async function start() {
     $("#login").hidden = true; $("#app").hidden = false;
     $("#demo-banner").hidden = !DEMO;
+    await api.loadRole();
     await reload();
   }
 
@@ -497,6 +506,9 @@
     const h = Math.ceil(e.target.getBoundingClientRect().height);
     document.documentElement.style.setProperty("--filters-h", h + "px");
   }).observe($(".filters"));
+
+  // shared with manage.js (Members, People, Import)
+  window.PAOApp = { api, state, reload, render, toast, esc, get db() { return db; }, DEMO, CFG, kindLabel: KIND_LABEL };
 
   restoreFilters();
   wire();

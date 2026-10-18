@@ -27,11 +27,14 @@ class SupabaseStore:
         rows = self._req("GET", "/source_health?select=*").json()
         return {(r["pao_id"], r["source"]): r for r in rows}
 
+    def load_pao_rows(self):
+        return self._req("GET", "/paos?select=*&order=sort_order").json()
+
     def schema_problems(self):
         """What's missing from the database (supabase/update-2.sql not run yet)."""
         problems = []
         for path, what in (("/items?select=kind&limit=1", "items.kind column"),
-                           ("/paos?select=facebook,lang&limit=1", "paos.facebook/lang columns"),
+                           ("/paos?select=facebook,lang,search_terms,config_seeded&limit=1", "paos member-list columns"),
                            ("/watched_pages?select=url&limit=1", "watched_pages table")):
             try:
                 self._req("GET", path)
@@ -113,6 +116,9 @@ class JsonStore:
 
     def schema_problems(self):
         return []
+
+    def load_pao_rows(self):
+        return sorted(self.data["paos"].values(), key=lambda r: r.get("sort_order") or 0)
 
     def load_pages(self):
         return {tuple(k.split("::", 2)): v for k, v in self.data["pages"].items()}

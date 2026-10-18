@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from . import browser, email_inbox, news_search, pagewatch, websites
-from .common import iso, load_paos, log, now_utc
+from .common import PAO, iso, load_paos, log, now_utc
 from .store import get_store
 
 ALL_SOURCES = ["website", "google_news", "newsapi", "email", "page_watch"]
@@ -24,6 +24,49 @@ WARN_WORDS = ("redirects", "certificate", "no links", "no article links", "JavaS
               "no leadership page", "no contact page", "couldn't open")
 NEW_ITEM_FIELDS = ("kind",)          # need supabase/update-2.sql
 NEW_PAO_FIELDS = ("facebook", "lang")
+CONFIG_FIELDS = ("news_url", "feed_url", "search_terms", "news_locale", "link_selector",
+                 "leadership_url", "contact_url", "facebook")
+
+
+def seed_rows(paos):
+    """Full member rows from paos.csv, used once to fill the database's member list."""
+    rows = pao_rows(paos)
+    by_id = {p.id: p for p in paos}
+    for r in rows:
+        p = by_id.get(r["id"])
+        for k in CONFIG_FIELDS:
+            r[k] = (getattr(p, k) or None) if p else None
+        r["config_seeded"] = True
+        r["updated_by"] = "paos.csv"
+    return rows
+
+
+def pao_from_row(r):
+    """A member row from the database (edited on the tracker) -> PAO."""
+    return PAO(id=r["id"], group=r.get("grp") or "Member", jurisdiction=r.get("jurisdiction") or "",
+               name=r.get("name") or r["id"], abbr=r.get("abbr") or "", website=r.get("website") or "",
+               news_url=r.get("news_url") or "", feed_url=r.get("feed_url") or "",
+               search_terms=r.get("search_terms") or "", news_locale=r.get("news_locale") or "en-US",
+               link_selector=r.get("link_selector") or "", active="yes" if r.get("active", True) else "no",
+               notes=r.get("notes") or "", facebook=r.get("facebook") or "",
+               leadership_url=r.get("leadership_url") or "", contact_url=r.get("contact_url") or "")
+
+
+def member_list(store, problems):
+    """Where the member list comes from: the database once it has been filled
+    (edited on the tracker's Members screen), otherwise paos.csv."""
+    csv_paos = load_paos()
+    if problems:  # database not updated yet: old behaviour
+        store.save_paos(pao_rows(csv_paos, new_fields=False))
+        return csv_paos
+    rows = store.load_pao_rows()
+    if not any(r.get("config_seeded") for r in rows):
+        print("Filling the database member list from config/paos.csv (first run after update 2)")
+        store.save_paos(seed_rows(csv_paos))
+        rows = store.load_pao_rows()
+    if not any(r["id"] == email_inbox.UNMATCHED_ID for r in rows):
+        store.save_paos([r for r in pao_rows([]) if r["id"] == email_inbox.UNMATCHED_ID])
+    return [pao_from_row(r) for r in rows if r["id"] != email_inbox.UNMATCHED_ID]
 
 
 def pao_rows(paos, new_fields=True):
@@ -128,17 +171,16 @@ def retry_in_browser(results, paos_by_id, prev_pages=None):
 def run(only=None, sources=None, dry_run=False, workers=8):
     started = now_utc()
     sources = sources or ALL_SOURCES
-    all_paos = load_paos()
-    paos = [p for p in all_paos if p.is_active and (not only or p.id in only)]
-    if only and not paos:
-        sys.exit(f"No active PAO with id in {sorted(only)} - check config/paos.csv")
     store = get_store(dry_run)
     problems = store.schema_problems()
     if problems:
         print(f"::warning::Database needs updating (missing {', '.join(problems)}). Paste supabase/update-2.sql "
               "into Supabase > SQL Editor and Run. Until then page watch is off and item types aren't saved.")
         sources = [s for s in sources if s != "page_watch"]
-    store.save_paos(pao_rows(all_paos, new_fields=not problems))
+    all_paos = member_list(store, problems)
+    paos = [p for p in all_paos if p.is_active and (not only or p.id in only)]
+    if only and not paos:
+        sys.exit(f"No active PAO with id in {sorted(only)} - check the Members screen")
     health = store.load_health()
     prev_pages = {} if problems else store.load_pages()
     newsapi = news_search.NewsAPI()

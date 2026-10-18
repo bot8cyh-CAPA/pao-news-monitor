@@ -31,6 +31,10 @@
       <div class="top-actions">
         <span id="inbox-status" class="chip"></span>
         <button id="refresh" class="btn ghost" type="button">Refresh</button>
+        <a id="ocr-link" class="btn ghost edit-only" href="ocr.html">Screenshots (OCR)</a>
+        <button id="import-btn" class="btn ghost edit-only" type="button">Import</button>
+        <button id="members-btn" class="btn ghost admin-only" type="button">Members</button>
+        <button id="people-btn" class="btn ghost admin-only" type="button">People</button>
         <button id="export" class="btn" type="button">Export CSV</button>
         <span id="user" class="muted small"></span>
         <button id="signout" class="btn ghost" type="button">Sign out</button>
@@ -102,9 +106,99 @@
     </form>
   </dialog>
 
+  <!-- Members (admins) -->
+  <dialog id="members-dialog" class="wide">
+    <div class="dialog-head">
+      <h2>Members</h2>
+      <div class="dialog-tools">
+        <button class="btn primary" id="member-add" type="button">+ Add member</button>
+        <button class="btn ghost" id="members-csv" type="button">Download list (CSV)</button>
+        <button class="btn ghost" data-close type="button">Close</button>
+      </div>
+    </div>
+    <p class="muted small">Changes are picked up by the next daily collection (or use Actions → Run workflow). Deactivated members are hidden and no longer collected; their past items are kept.</p>
+    <div class="table-wrap"><table class="grid" id="members-table"></table></div>
+  </dialog>
+
+  <dialog id="member-dialog">
+    <form method="dialog" id="member-form" class="add-form">
+      <h2 id="member-form-title">Add member</h2>
+      <div class="two">
+        <label>Name * <input name="name" required maxlength="200"></label>
+        <label>Abbreviation * <input name="abbr" required maxlength="40"></label>
+      </div>
+      <div class="two">
+        <label>Group
+          <select name="grp"><option>Member</option><option>Associate</option><option>Affiliate</option><option>Stakeholder</option></select>
+        </label>
+        <label>Country / jurisdiction <input name="jurisdiction" maxlength="200"></label>
+      </div>
+      <label>Website <input name="website" type="url" placeholder="https://"></label>
+      <label>Google News searches <input name="search_terms" placeholder='"Full name"|"ABBR"'>
+        <span class="muted small">Separate with |. Quotes = exact phrase. Leave empty to skip news search.</span></label>
+      <div class="two">
+        <label>Language / news edition
+          <input name="news_locale" list="locales" placeholder="en-US"></label>
+        <label>Facebook page (manual button) <input name="facebook" type="url" placeholder="https://www.facebook.com/..."></label>
+      </div>
+      <datalist id="locales">
+        <option value="en-US"><option value="en-AU"><option value="en-IN"><option value="en-MY"><option value="en-SG"><option value="en-PH">
+        <option value="en-PK"><option value="en-LK"><option value="en-NZ"><option value="en-GB"><option value="zh-CN"><option value="zh-HK">
+        <option value="zh-TW"><option value="ja-JP"><option value="ko-KR"><option value="vi-VN"><option value="fr-FR"><option value="id-ID">
+        <option value="th-TH"><option value="mn-MN"><option value="ne-NP"><option value="bn-BD">
+      </datalist>
+      <details>
+        <summary>Advanced (only if the automatic checks miss things)</summary>
+        <label>News / publications / events pages <input name="news_url" placeholder="https://x.org/news|publications>https://x.org/library">
+          <span class="muted small">Separate with |. Start with publications&gt; or events&gt; to label a page.</span></label>
+        <label>RSS feed <input name="feed_url" placeholder="https://x.org/feed"></label>
+        <label>Leadership page(s) <input name="leadership_url" placeholder="page listing the President / CEO"></label>
+        <label>Contact page <input name="contact_url"></label>
+        <label>Link selector <input name="link_selector" placeholder=".news-list a"></label>
+      </details>
+      <label>Notes <input name="notes" maxlength="300"></label>
+      <label class="check"><input type="checkbox" name="active" checked> Active (collected and shown)</label>
+      <p class="muted small" id="member-form-msg"></p>
+      <div class="dialog-actions">
+        <button value="delete" formnovalidate class="btn danger" id="member-delete" type="submit">Delete permanently…</button>
+        <span class="spacer"></span>
+        <button value="cancel" formnovalidate class="btn ghost">Cancel</button>
+        <button value="save" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- People (admins) -->
+  <dialog id="people-dialog" class="wide">
+    <div class="dialog-head">
+      <h2>People</h2>
+      <div class="dialog-tools"><button class="btn ghost" data-close type="button">Close</button></div>
+    </div>
+    <p class="muted small"><b>Admin</b>: everything, including Members and People. <b>Team</b>: tag, add, import, screenshots. <b>Viewer</b>: read and export only.
+      To add someone, invite them in Supabase (Authentication → Users → Invite user); they start as Team.</p>
+    <div class="table-wrap"><table class="grid" id="people-table"></table></div>
+  </dialog>
+
+  <!-- Import -->
+  <dialog id="import-dialog" class="wide">
+    <div class="dialog-head">
+      <h2>Import items</h2>
+      <div class="dialog-tools"><button class="btn ghost" data-close type="button">Close</button></div>
+    </div>
+    <p class="muted small">Excel or CSV with columns <b>PAO</b> (id, abbreviation or name), <b>Date</b>, <b>Type</b> (News / Event / Publication), <b>Title</b>, <b>Content</b>, <b>Posted by</b>, <b>Link</b>, <b>Language</b>.
+      Only PAO and Title or Content are required. The Screenshots (OCR) page downloads files in exactly this format.</p>
+    <p><input type="file" id="import-file" accept=".xlsx,.xls,.csv"></p>
+    <div id="import-preview"></div>
+    <div class="dialog-actions">
+      <span class="spacer"></span>
+      <button class="btn primary" id="import-save" type="button" disabled>Add to tracker</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script src="config.js"></script>
   <script src="app.js"></script>
+  <script src="manage.js"></script>
 </body>
 </html>

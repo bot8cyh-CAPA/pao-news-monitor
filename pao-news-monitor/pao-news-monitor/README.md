@@ -11,12 +11,30 @@ Every morning this tool checks the CAPA member bodies and stakeholders for news,
 | **Google News** | Coverage *about* each PAO in other outlets, including local and non-English press. |
 | **NewsAPI** | A second news search (free plan). |
 | **Email** | Press releases sent to the monitor inbox (`bot8cyh@gmail.com`). |
-| **Added by team** | Anything you find yourselves, e.g. on LinkedIn. Use **+ Add item** on the page. |
+| **Added by team** | Anything you find yourselves, e.g. on LinkedIn. Use **+ Add item**, **Import** (Excel/CSV) or **Screenshots (OCR)**. |
 
 LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
 
 ### Updating from an earlier version
-If your database was set up before the publications/events/page-watch update, paste `supabase/update-2.sql` into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you.
+If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`.)
+
+## Roles
+| Role | Can |
+|---|---|
+| **Admin** | Everything, plus **Members** (add / edit / deactivate PAOs) and **People** (give roles) |
+| **Team** | Tag items, add items, Import, Screenshots (OCR), export. Everyone invited starts as Team. |
+| **Viewer** | Read and export only |
+
+Invite people in Supabase (**Authentication → Users → Invite user**), then set their role on the tracker's **People** screen. There must always be at least one admin. The rules are enforced by the database, not just the page.
+
+## Members (the PAO list)
+Admins manage the list on the tracker's **Members** screen: add a PAO (name, abbreviation, group, country, website; Google News searches are suggested from the name), edit any setting, or **Deactivate** (hidden and no longer collected, past items kept, can be reactivated). **Delete permanently** also deletes everything collected for that PAO; use it only for mistakes like duplicates. Changes apply from the next collection. **Download list (CSV)** gives a backup copy.
+
+After update 2, the first collection copies `config/paos.csv` into the database once; from then on the Members screen is what counts, and editing `paos.csv` has no effect.
+
+## Screenshots (OCR) and Import
+- **Screenshots (OCR)** (button at the top): pick the PAO, then drop, choose or paste (Ctrl+V) screenshots of posts, e.g. from LinkedIn or Facebook. The text is read in your browser; screenshots are never uploaded. It fills in who posted, the date ("2d" is worked out from when the screenshot was taken), a title and the text. Check and fix each row, set the type, paste the link if you have it, then **Save to tracker** or **Download Excel / CSV**.
+- **Import**: upload an Excel or CSV file with columns PAO, Date, Type, Title, Content, Posted by, Link, Language (only PAO and a title or content are needed). You see a preview first; rows whose PAO can't be found are skipped and listed. Importing the same file twice doesn't create duplicates.
 
 ---
 
@@ -86,7 +104,7 @@ In Supabase, go to **Authentication → Users → Invite user** and invite each 
 
 ## Fixing things yourself (no coding)
 
-All of these are edits to **`config/paos.csv`**. Open it in GitHub, click the pencil, edit, and commit. To re-check just one PAO afterwards, use **Actions → Collect news → Run workflow** and type its id (e.g. `icai`) in the first box.
+Admins make all of these on the tracker: **Members → Edit** (most are under **Advanced**). Before update 2 they were edits to `config/paos.csv`. To re-check just one PAO afterwards, use **Actions → Collect news → Run workflow** and type its id (e.g. `icai`) in the first box.
 
 | Problem | Fix |
 |---|---|
@@ -99,8 +117,8 @@ All of these are edits to **`config/paos.csv`**. Open it in GitHub, click the pe
 | PAO posts mainly on Facebook | Put its Facebook page address in `facebook` to get a Facebook button. |
 | Too many junk links from one site | Put a CSS selector in `link_selector` (e.g. `.news-list a`). Only those links are used. Ask Claude if unsure. |
 | Google News results are off-target | Edit `search_terms`. Terms are separated by `\|`, and quotes mean an exact phrase. Start a term with a locale such as `zh-HK>` to search another country's edition. |
-| Add a new PAO | Add a row with a new short `id` (lowercase, no spaces). Copy another row's format. |
-| Stop monitoring one | Set `active` to `no`. Don't delete the row. |
+| Add a new PAO | **Members → + Add member**. |
+| Stop monitoring one | **Members → Deactivate**. |
 
 **Columns:** `id`, `group` (Member / Associate / Affiliate / Stakeholder), `jurisdiction`, `name`, `abbr`, `website`, `news_url`, `feed_url`, `search_terms`, `news_locale` (Google News edition, e.g. `en-IN`, `ja-JP`, `zh-CN`), `link_selector`, `active`, `notes`, `facebook`, `leadership_url`, `contact_url`.
 

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screenshots to Items</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e5a57'/><path d='M8 10h16M8 16h16M8 22h10' stroke='white' stroke-width='3' stroke-linecap='round'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="ocr-page">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>Screenshots to items</h1>
+        <p class="muted small">Read in your browser - screenshots are never uploaded. <a href="index.html">← Back to the tracker</a></p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="user" class="muted small"></span>
+    </div>
+  </header>
+
+  <div id="signin-needed" class="error-box" hidden>Please <a href="index.html">sign in on the tracker</a> first, then come back here.</div>
+
+  <main id="ocr" class="ocr-main" hidden>
+    <section class="ocr-step">
+      <label class="ocr-pao">1. PAO for the next screenshots
+        <select id="pao"></select>
+      </label>
+      <div id="drop" class="drop" tabindex="0">
+        <p><b>2. Drop screenshots here</b>, <label class="link"><input type="file" id="files" accept="image/*" multiple hidden>choose files</label>,
+          or paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</p>
+        <p class="muted small">Change the PAO above between batches. Full posts with the name and date visible read best.</p>
+      </div>
+    </section>
+
+    <section class="ocr-step">
+      <div class="ocr-bar">
+        <h2>3. Check and fix <span id="count" class="muted small"></span></h2>
+        <div class="dialog-tools">
+          <button class="btn" id="dl-xlsx" type="button" disabled>Download Excel</button>
+          <button class="btn ghost" id="dl-csv" type="button" disabled>Download CSV</button>
+          <button class="btn primary" id="save" type="button" disabled>Save to tracker</button>
+          <button class="btn ghost" id="clear" type="button" disabled>Clear all</button>
+        </div>
+      </div>
+      <p id="empty" class="empty-note">No screenshots yet.</p>
+      <ol id="rows" class="ocr-rows"></ol>
+    </section>
+  </main>
+
+  <dialog id="zoom" class="zoom"><img alt="Screenshot"><form method="dialog"><button class="btn">Close</button></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="ocr.js"></script>
+</body>
+</html>

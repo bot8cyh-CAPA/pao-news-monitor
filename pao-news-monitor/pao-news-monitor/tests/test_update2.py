@@ -198,3 +198,36 @@ def test_dry_run_end_to_end(monkeypatch, tmp_path):
     monkeypatch.setattr(websites, "fetch", site(pages2))
     s2 = main.run(only={"icai"}, sources=["website", "page_watch"], dry_run=True)
     assert s2["changes"] == 1
+
+
+# ---------- member list lives in the database ----------
+
+def test_member_list_seeded_once_then_database_wins(monkeypatch, tmp_path):
+    store = JsonStore(tmp_path / "local.json")
+    csv = [pao(), pao(id="picpa", abbr="PICPA", name="Philippine Institute of CPAs", website="https://picpa.com.ph")]
+    monkeypatch.setattr(main, "load_paos", lambda: csv)
+    first = main.member_list(store, problems=[])
+    assert [p.id for p in first] == ["icai", "picpa"]
+    rows = store.load_pao_rows()
+    assert all(r.get("config_seeded") for r in rows if r["id"] != "_unmatched_email")
+    assert any(r["id"] == "_unmatched_email" for r in rows)
+
+    # an admin edits ICAI, deactivates PICPA and adds a new member on the tracker
+    store.data["paos"]["icai"]["website"] = "https://www.icai.org/new"
+    store.data["paos"]["picpa"]["active"] = False
+    store.data["paos"]["tia"] = dict(id="tia", grp="Associate", name="Test Institute", abbr="TIA", website="https://tia.example.org",
+                                     active=True, search_terms='"Test Institute"', news_locale="en-MY", sort_order=99)
+    # ...and someone also edits paos.csv: ignored now
+    csv[0] = pao(website="https://from-csv.example")
+    second = {p.id: p for p in main.member_list(store, problems=[])}
+    assert second["icai"].website == "https://www.icai.org/new"
+    assert not second["picpa"].is_active
+    assert second["tia"].group == "Associate" and second["tia"].news_locale == "en-MY" and second["tia"].is_active
+
+
+def test_member_list_falls_back_to_csv_before_db_update(monkeypatch, tmp_path):
+    store = JsonStore(tmp_path / "local.json")
+    monkeypatch.setattr(main, "load_paos", lambda: [pao()])
+    got = main.member_list(store, problems=["paos member-list columns"])
+    assert [p.id for p in got] == ["icai"]
+    assert "config_seeded" not in store.data["paos"]["icai"]
