@@ -147,10 +147,11 @@ def test_unreadable_200_skips_model():
 
 
 def test_default_chain_uses_free_providers_with_keys():
-    c = ai.Chain(env={"GEMINI_API_KEY": "g", "CF_ACCOUNT_ID": "a", "CF_AI_TOKEN": "t"})
-    specs = [s for s, *_ in c.chain("smart")]
-    assert specs[0].startswith("gemini:") and any(s.startswith("cloudflare:") for s in specs)
-    assert not any(s.startswith(("github:", "openrouter:")) for s in specs)
+    c = ai.Chain(env={"GEMINI_API_KEY": "g", "GROQ_API_KEY": "q", "CF_ACCOUNT_ID": "a", "CF_AI_TOKEN": "t", "OPENROUTER_API_KEY": "o"})
+    order = [s.split(":")[0] for s, *_ in c.chain("smart")]
+    firsts = [p for i, p in enumerate(order) if p not in order[:i]]
+    assert firsts == ["gemini", "groq", "cloudflare", "openrouter"]     # OpenRouter is the last resort
+    assert "github" not in order
 
 
 def test_cut_off_answer_retried_with_more_room_then_next_model():

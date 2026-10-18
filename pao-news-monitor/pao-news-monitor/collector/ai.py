@@ -3,8 +3,9 @@ the next one is tried. All providers speak the same (OpenAI-style) language.
 
 Order (each step only if its key is available as a repository secret):
   1. Google Gemini (free tier)              - GEMINI_API_KEY
-  2. Cloudflare Workers AI (free allowance) - CF_ACCOUNT_ID + CF_AI_TOKEN
-  3. OpenRouter free models                 - OPENROUTER_API_KEY
+  2. Groq (free plan)                       - GROQ_API_KEY
+  3. Cloudflare Workers AI (free allowance) - CF_ACCOUNT_ID + CF_AI_TOKEN
+  4. OpenRouter free models (last resort)   - OPENROUTER_API_KEY
 (GitHub Models was retired by GitHub on 30 July 2026; "github:" entries only work if
  put back via AI_MODELS_* for a compatible endpoint.)
 If all fail, callers fall back to a no-AI result (e.g. a plain list).
@@ -25,15 +26,18 @@ GITHUB_URL = "https://models.github.ai/inference/chat/completions"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 CF_URL = "https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1/chat/completions"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # "fast" = tagging many items (cheap models, bigger free quotas); "smart" = writing the brief
 DEFAULT_CHAINS = {
     "fast": ["gemini:gemini-3.5-flash-lite", "gemini:gemini-3.1-flash-lite", "gemini:gemini-3.8-flash", "gemini:gemini-flash-latest",
+             "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:llama-3.3-70b-versatile",
              "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast", "cloudflare:@cf/meta/llama-3.1-8b-instruct",
-             "openrouter:meta-llama/llama-3.3-70b-instruct:free"],
+             "openrouter:nvidia/nemotron-3-super-120b-a12b:free", "openrouter:nvidia/nemotron-3.5-lightning:free"],
     "smart": ["gemini:gemini-3.8-flash", "gemini:gemini-3.6-flash", "gemini:gemini-flash-latest",
+              "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:llama-3.3-70b-versatile",
               "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast", "cloudflare:@cf/meta/llama-3.1-8b-instruct",
-              "openrouter:meta-llama/llama-3.3-70b-instruct:free"],
+              "openrouter:nvidia/nemotron-3-super-120b-a12b:free", "openrouter:nvidia/nemotron-3.5-lightning:free"],
 }
 
 
@@ -70,6 +74,8 @@ class Chain:
             return GEMINI_URL, e["GEMINI_API_KEY"], model
         if provider == "cloudflare" and e.get("CF_ACCOUNT_ID") and e.get("CF_AI_TOKEN"):
             return CF_URL.format(account=e["CF_ACCOUNT_ID"]), e["CF_AI_TOKEN"], model
+        if provider == "groq" and e.get("GROQ_API_KEY"):
+            return GROQ_URL, e["GROQ_API_KEY"], model
         if provider == "openrouter" and e.get("OPENROUTER_API_KEY"):
             return OPENROUTER_URL, e["OPENROUTER_API_KEY"], model
         return None
