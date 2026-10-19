@@ -1,4 +1,4 @@
--- PAO News Monitor database. After this, also run update-2.sql, update-3.sql, update-4.sql and update-5.sql.
+-- PAO News Monitor database. After this, also run update-2.sql, update-3.sql, update-4.sql, update-5.sql and update-6.sql.
 -- Paste this whole file into Supabase > SQL Editor > New query, then press Run.
 -- Safe to run again: it only creates what's missing.
 

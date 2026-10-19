@@ -275,3 +275,8 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 #send-dialog { width: min(560px, calc(100% - 32px)); }
 .send-steps { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; font-size: 14px; }
 .send-steps .dialog-tools { margin-top: 6px; }
+.send-state { margin: 4px 0; padding: 6px 10px; border-radius: 6px; background: var(--accent-soft); font-size: 13px; }
+.send-state.bad { background: var(--error-soft); color: var(--error); }
+.send-manual { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; }
+.send-manual summary { cursor: pointer; font-size: 14px; color: var(--muted); }
+.send-manual .send-steps { margin-top: 10px; }

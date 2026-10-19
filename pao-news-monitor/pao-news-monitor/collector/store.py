@@ -57,6 +57,16 @@ class SupabaseStore:
             self._req("POST", "/items?on_conflict=id", json=rows[i:i + 200],
                       headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
 
+    def briefs_to_send(self):
+        return self._req("GET", "/briefs?select=*&status=eq.approved&send_requested_at=not.is.null&sent_at=is.null"
+                                "&order=send_requested_at").json()
+
+    def mailing_list(self):
+        return self._req("GET", "/mailing_list?select=email,name,active&active=is.true").json()
+
+    def update_brief(self, brief_id, patch):
+        self._req("PATCH", f"/briefs?id=eq.{int(brief_id)}", json=patch, headers={"Prefer": "return=minimal"})
+
     def save_brief(self, row):
         """Save a new draft and remove older drafts for an overlapping period that nobody
         edited or approved (they're superseded). Edited or approved briefs are always kept."""
@@ -166,6 +176,19 @@ class JsonStore:
     def save_item_ai(self, rows):
         for r in rows:
             self.data["items"].setdefault(r["id"], {}).update(r)
+        self._save()
+
+    def briefs_to_send(self):
+        return [b for b in self.data.get("briefs", [])
+                if b.get("status") == "approved" and b.get("send_requested_at") and not b.get("sent_at")]
+
+    def mailing_list(self):
+        return [m for m in self.data.get("mailing_list", []) if m.get("active", True)]
+
+    def update_brief(self, brief_id, patch):
+        for b in self.data.get("briefs", []):
+            if b.get("id") == brief_id:
+                b.update(patch)
         self._save()
 
     def save_brief(self, row):

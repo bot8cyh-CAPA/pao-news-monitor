@@ -266,19 +266,24 @@
     <div class="add-form">
       <h2>Send the weekly brief</h2>
       <p id="send-summary"></p>
-      <ol class="send-steps">
-        <li><button class="btn" id="send-copy" type="button">1. Copy the brief</button> <span class="muted small">(with formatting)</span></li>
-        <li>2. Open a new email with the list in BCC:
-          <div class="dialog-tools">
-            <a class="btn primary" id="send-owa" target="_blank" rel="noopener">Outlook on the web</a>
-            <a class="btn" id="send-mailto">Outlook app / default mail</a>
-          </div>
-          <p class="muted small" id="send-long" hidden>The list is too long to pre-fill. Click <b>Copy addresses</b> and paste them into the BCC box.</p>
-          <button class="link small" id="send-copy-bcc" type="button">Copy addresses</button>
-        </li>
-        <li>3. Paste the brief into the email body (Ctrl+V), check it, and click Send.</li>
-        <li><button class="btn" id="send-done" type="button">4. I've sent it</button> <span class="muted small">records it here so nobody sends it twice</span></li>
-      </ol>
+      <button class="btn primary" id="send-now" type="button">Send now</button>
+      <p class="muted small">Emailed from <b>CAPA News Monitor</b> with everyone in BCC (recipients can't see each other) within about 10 minutes. Replies come to you.</p>
+      <details class="send-manual">
+        <summary>Or send it from your own Outlook instead</summary>
+        <ol class="send-steps">
+          <li><button class="btn" id="send-copy" type="button">1. Copy the brief</button></li>
+          <li>2. Open a new email with the list in BCC:
+            <div class="dialog-tools">
+              <a class="btn" id="send-owa" target="_blank" rel="noopener">Outlook on the web</a>
+              <a class="btn" id="send-mailto">Outlook app</a>
+            </div>
+            <p class="muted small" id="send-long" hidden>The list is too long to pre-fill: use <b>Copy addresses</b> and paste into BCC.</p>
+            <button class="link small" id="send-copy-bcc" type="button">Copy addresses</button>
+          </li>
+          <li>3. Paste the brief (Ctrl+V), check it, Send.</li>
+          <li><button class="btn" id="send-done" type="button">4. I've sent it</button></li>
+        </ol>
+      </details>
       <div class="dialog-actions"><button class="btn ghost" id="send-close" type="button">Close</button></div>
     </div>
   </dialog>

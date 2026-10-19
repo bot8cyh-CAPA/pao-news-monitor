@@ -16,7 +16,7 @@ Every morning this tool checks the CAPA member bodies and stakeholders for news,
 LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
 
 ### Updating from an earlier version
-If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`.)
+If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`, then `update-6.sql`.)
 
 ## Sign-in (email + password)
 People sign in with their email and a password. Email is only used to confirm a new account and for "Forgot password".
@@ -39,9 +39,9 @@ Open it with **Weekly brief** at the top of the tracker. Team members can **Edit
 
 **AI used (free):** add at least one key as a repository secret (GitHub → Settings → Secrets and variables → Actions). It tries them in this order and moves on when a model's free quota runs out: `GEMINI_API_KEY` (Google AI Studio, free tier), `GROQ_API_KEY` (console.groq.com, free plan), `CF_ACCOUNT_ID` + `CF_AI_TOKEN` (Cloudflare Workers AI, free daily allowance), and as a last resort `OPENROUTER_API_KEY` (openrouter.ai, free models). Only titles and short snippets of public news are sent - never your notes. Up to 280 items a week are AI-tagged (relevant, leadership, websites and emails first). If no model is available, the brief is saved as a plain list of the week's items instead. The brief shows which model wrote it.
 
-**Sending it:** admins keep a **Mailing list** on the Admin tab (add one by one, or paste many from Outlook/Excel; pause or remove anyone). On an approved brief, **Send to mailing list…** copies the brief and opens a new email in **Outlook on the web** or the Outlook app with everyone in **BCC** and the subject filled in: paste (Ctrl+V), check, Send, then click **I've sent it** so it's recorded and nobody sends it twice. It goes from your own address, so replies come to you.
+**Sending it:** admins keep a **Mailing list** on the Admin tab (add one by one, or paste many from Outlook/Excel; pause or remove anyone). On an approved brief, **Send to mailing list… → Send now** queues it; within about 10 minutes it's emailed from the monitor's Gmail as "CAPA News Monitor", with everyone in **BCC** and replies going to the admin who pressed Send. The brief then shows who sent it, when and to how many (or the error, if sending failed). Change of mind before it goes? **Cancel sending**. The staff-only "draft written by AI" banner is replaced by a short note that it was prepared with AI and reviewed by CAPA staff. Prefer to send it yourself? The same box has **send it from your own Outlook** (copies the brief and opens Outlook with the list in BCC).
 
-Setup: run `supabase/update-4.sql` and `supabase/update-5.sql` once.
+Setup: run `supabase/update-4.sql`, `update-5.sql` and `update-6.sql` once.
 
 ## Roles
 | Role | Can |

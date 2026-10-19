@@ -81,7 +81,9 @@
     const meta = `<p class="muted small">Written ${new Date(current.created_at).toLocaleString()} by ${esc(current.models_used || "?")}
       · ${current.stats?.items ?? "?"} items this week${current.edited_by ? ` · edited by ${esc(current.edited_by)} ${fmt(current.edited_at)}` : ""}
       ${current.status === "approved" ? ` · <b>approved</b> by ${esc(current.approved_by || "")} ${fmt(current.approved_at)}` : ""}
-      ${current.sent_at ? ` · <b>sent</b> to ${current.sent_to ?? "?"} people by ${esc(current.sent_by || "")} ${fmt(current.sent_at)}` : ""}</p>`;
+      ${current.sent_at ? ` · <b>sent</b> to ${current.sent_to ?? "?"} people by ${esc(current.sent_by || "")} ${fmt(current.sent_at)}` : ""}</p>
+      ${current.send_requested_at && !current.sent_at ? `<p class="send-state">Sending: queued by ${esc(current.send_requested_by || "")} at ${new Date(current.send_requested_at).toLocaleTimeString()}. It goes out within about 10 minutes - refresh to check.</p>` : ""}
+      ${current.send_error ? `<p class="send-state bad">Sending failed: ${esc(current.send_error)}. Fix it and press Send to mailing list again.</p>` : ""}`;
     if (editing) {
       t.innerHTML = `<button class="btn primary" id="brief-save" type="button">Save</button><button class="btn ghost" id="brief-cancel" type="button">Cancel</button>`;
       body.innerHTML = meta + `<p class="muted small">Plain text with simple formatting: <code>## Heading</code>, <code>- bullet</code>, <code>**bold**</code>. Keep the [n] numbers - they link to the sources.</p>
@@ -91,7 +93,9 @@
     t.innerHTML = [
       canEdit() ? `<button class="btn" id="brief-edit" type="button">Edit</button>` : "",
       isAdmin() ? `<button class="btn ${current.status === "approved" ? "ghost" : "primary"}" id="brief-approve" type="button">${current.status === "approved" ? "Back to draft" : "Approve"}</button>` : "",
-      isAdmin() && current.status === "approved" ? `<button class="btn primary" id="brief-send" type="button">${current.sent_at ? "Send again…" : "Send to mailing list…"}</button>` : "",
+      isAdmin() && current.status === "approved" && current.send_requested_at && !current.sent_at
+        ? `<button class="btn" id="brief-cancel-send" type="button">Cancel sending</button>`
+        : isAdmin() && current.status === "approved" ? `<button class="btn primary" id="brief-send" type="button">${current.sent_at ? "Send again…" : "Send to mailing list…"}</button>` : "",
       `<button class="btn ghost" id="brief-copy" type="button" title="Copy with formatting, then paste into an Outlook email">Copy for email</button>`,
       `<button class="btn ghost" id="brief-word" type="button">Download Word</button>`,
     ].join("");
@@ -118,12 +122,20 @@
   }
   const DOC_CSS = "body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.4}h1{font-size:18pt}h2{font-size:14pt;margin-top:14pt}" +
     "h3{font-size:12pt}blockquote{color:#555;border-left:3px solid #ccc;margin:0;padding-left:8px}a{color:#0e5a57}li{margin:2pt 0}";
+  // the "draft written by AI - please review" banner is for staff, not recipients
+  function forRecipients() {
+    const doc = $("#brief-doc").cloneNode(true);
+    doc.querySelectorAll("blockquote").forEach((q) => { if (/Draft written by AI|No AI model was available/.test(q.textContent)) q.remove(); });
+    doc.insertAdjacentHTML("beforeend", '<p style="font-size:9pt;color:#777">This briefing was prepared with AI assistance from public sources and reviewed by CAPA staff.</p>');
+    return doc;
+  }
   async function copy() {
-    const html = $("#brief-doc").innerHTML;
+    const doc = forRecipients();
+    const html = doc.innerHTML;
     try {
       await navigator.clipboard.write([new ClipboardItem({
         "text/html": new Blob([`<div style="font-family:Calibri,Arial,sans-serif">${html}</div>`], { type: "text/html" }),
-        "text/plain": new Blob([$("#brief-doc").innerText], { type: "text/plain" }),
+        "text/plain": new Blob([doc.innerText], { type: "text/plain" }),
       })]);
       A.toast("Copied - paste into a new Outlook email (Ctrl+V)");
     } catch {
@@ -151,13 +163,30 @@
     const owa = `https://outlook.office.com/mail/deeplink/compose?bcc=${encodeURIComponent(bcc)}&subject=${subj}`;
     const mailto = `mailto:?bcc=${encodeURIComponent(sendList.join(","))}&subject=${subj}`;
     const tooLong = owa.length > 1900;
-    $("#send-summary").innerHTML = `To <b>${sendList.length}</b> people on the mailing list, from your own email. Subject: <i>${esc(subject())}</i>`
+    $("#send-summary").innerHTML = `To <b>${sendList.length}</b> ${sendList.length === 1 ? "person" : "people"} on the mailing list. Subject: <i>${esc(subject())}</i>`
       + (current.sent_at ? `<br><span class="warn-text">Already sent ${fmt(current.sent_at)} by ${esc(current.sent_by || "")}.</span>` : "");
     $("#send-owa").href = tooLong ? `https://outlook.office.com/mail/deeplink/compose?subject=${subj}` : owa;
     $("#send-mailto").href = tooLong ? `mailto:?subject=${subj}` : mailto;
     $("#send-long").hidden = !tooLong;
     $("#send-dialog").showModal();
   }
+  async function sendNow() {
+    if (current.sent_at && !confirm(`This brief was already sent ${fmt(current.sent_at)}. Send it again to everyone?`)) return;
+    try {
+      if (!A.DEMO) { const { error } = await A.db.rpc("request_brief_send", { brief_id: current.id }); if (error) throw error; }
+      Object.assign(current, { send_requested_at: new Date().toISOString(), send_requested_by: A.state.user?.email, send_error: null, sent_at: null });
+      $("#send-dialog").close(); draw(); A.toast("Queued - it will be emailed within about 10 minutes");
+    } catch (e) {
+      A.toast(/request_brief_send|schema cache|does not exist/i.test(e.message) ? "Database needs updating: run supabase/update-6.sql" : "Couldn't send: " + e.message, true);
+    }
+  }
+  async function cancelSend() {
+    try {
+      if (!A.DEMO) { const { error } = await A.db.rpc("cancel_brief_send", { brief_id: current.id }); if (error) throw error; }
+      Object.assign(current, { send_requested_at: null, send_requested_by: null }); draw(); A.toast("Sending cancelled");
+    } catch (e) { A.toast("Couldn't cancel: " + e.message, true); }
+  }
+  $("#send-now").addEventListener("click", sendNow);
   $("#send-copy").addEventListener("click", copy);
   $("#send-copy-bcc").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(sendList.join("; ")); A.toast("Addresses copied - paste into BCC"); }
@@ -188,6 +217,7 @@
     else if (id === "brief-copy") copy();
     else if (id === "brief-word") word();
     else if (id === "brief-send") openSend();
+    else if (id === "brief-cancel-send") cancelSend();
   });
   // leaving other views closes this one
   for (const sel of ["#admin-btn"]) document.querySelector(sel)?.addEventListener("click", () => { $("#brief-view").hidden = true; });
