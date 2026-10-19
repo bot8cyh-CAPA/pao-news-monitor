@@ -102,5 +102,5 @@ create policy "team adds manual items" on items for insert to authenticated with
 
 -- the web page may only change the tagging columns
 revoke update on items from authenticated, anon;
-grant update (relevance, category, notes, reviewed_by, reviewed_at, kind) on items to authenticated;
+grant update (relevance, category, notes, reviewed_by, reviewed_at, kind, pao_id) on items to authenticated;
 revoke all on paos, items, source_health, runs, watched_pages from anon;

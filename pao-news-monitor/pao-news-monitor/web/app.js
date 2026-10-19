@@ -355,6 +355,7 @@
         ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type"${ro}>${["news", "events", "publications", "articles"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
         ${nonEnglish(it) ? `<button class="link small" type="button" data-translate="${esc(it.id)}" title="Show the headline in English (Google Translate)">${showingEnglish.has(it.id) ? "Show original" : "Translate"}</button>` : ""}
         ${nonEnglish(it) && canTranslatePage(it) ? `<a class="link small" href="${esc(pageTranslateUrl(it.url))}" target="_blank" rel="noopener" title="Open the whole page translated">Translate page</a>` : ""}
+        ${can("tag_items") ? `<button class="link small" type="button" data-move="${esc(it.id)}" title="File this item under a different PAO">Move to another PAO</button>` : ""}
         ${reviewed}
       </div>
     </li>`;
@@ -386,9 +387,16 @@
     const before = { ...it };
     Object.assign(patch, { reviewed_by: state.user?.email || null, reviewed_at: new Date().toISOString() });
     Object.assign(it, patch);
+    let ok = true;
     try { await api.update(id, patch); }
-    catch (e) { Object.assign(it, before); toast("Couldn't save: " + e.message, true); }
+    catch (e) {
+      ok = false; Object.assign(it, before);
+      const msg = /permission denied/i.test(e.message) && "pao_id" in patch
+        ? "Moving items needs a quick database update (supabase/update-9.sql) - ask your admin" : "Couldn't save: " + e.message;
+      toast(msg, true);
+    }
     render();
+    return ok;
   }
 
   async function reload() {
@@ -429,6 +437,23 @@
       }
       const add = e.target.closest("[data-add]");
       if (add) return openAdd(add.dataset.add);
+      const mv = e.target.closest("[data-move]");
+      if (mv) {
+        // swap the link for a PAO picker; choosing one moves the item
+        const it = state.items.find((i) => i.id === mv.dataset.move);
+        const sel = document.createElement("select");
+        sel.className = "pao-pick";
+        sel.setAttribute("aria-label", "Move to PAO");
+        sel.innerHTML = `<option value="">Move to…</option>` + GROUP_ORDER.map((g) => {
+          const ps = state.paos.filter((p) => (p.grp || "Member") === g && p.id !== it.pao_id);
+          return ps.length ? `<optgroup label="${esc(g)}">${ps.map((p) => `<option value="${esc(p.id)}">${esc(p.abbr || p.name)}${p.jurisdiction ? ` (${esc(p.jurisdiction)})` : ""}</option>`).join("")}</optgroup>` : "";
+        }).join("");
+        sel.dataset.item = it.id;
+        mv.replaceWith(sel);
+        sel.focus();
+        sel.addEventListener("blur", () => { if (!sel.value) render(); });
+        return;
+      }
       const tr = e.target.closest("[data-translate]");
       if (tr) {
         const it = state.items.find((i) => i.id === tr.dataset.translate);
@@ -459,6 +484,11 @@
     $("#main").addEventListener("change", (e) => {
       const el = e.target;
       if (el.matches(".kind-pick")) return save(el.closest(".item").dataset.id, { kind: el.value });
+      if (el.matches(".pao-pick")) {
+        if (!el.value) return render();
+        const p = state.paos.find((x) => x.id === el.value);
+        return save(el.dataset.item, { pao_id: el.value }).then((ok) => ok && toast(`Moved to ${p?.abbr || p?.name || el.value}`));
+      }
       if (!el.matches(".cat, .notes")) return;
       const id = el.closest(".item").dataset.id;
       const field = el.classList.contains("cat") ? "category" : "notes";
