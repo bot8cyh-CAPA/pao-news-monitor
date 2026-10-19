@@ -15,6 +15,8 @@ window.PAO_CONFIG = {
     "Exams & education",
     "Press release",
     "Partnership / MoU",
+    "Insights & trends",
+    "Research & surveys",
     "Other",
   ],
 };
