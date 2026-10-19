@@ -280,3 +280,6 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 .send-manual { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; }
 .send-manual summary { cursor: pointer; font-size: 14px; color: var(--muted); }
 .send-manual .send-steps { margin-top: 10px; }
+.ocr-setup { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.ocr-setup .ocr-pao { flex: 1 1 280px; }
+.ocr-setup input[type=date] { max-width: 200px; font-weight: normal; }

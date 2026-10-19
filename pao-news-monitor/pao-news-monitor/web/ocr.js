@@ -101,7 +101,9 @@
       worker.current = (p) => { row.progress = p; const bar = document.querySelector(`[data-key="${row.key}"] progress`); if (bar) bar.value = p; };
       const { data } = await w.recognize(await upscale(row.file));
       worker.current = null;
-      Object.assign(row, interpret(data.text || "", row.file.lastModified || Date.now()));
+      const read = interpret(data.text || "", row.file.lastModified || Date.now());
+      if (!read.date || row.dateSetByHand) read.date = row.date;    // keep a typed / batch date when the screenshot has none
+      Object.assign(row, read);
       row.status = "done";
     } catch (e) {
       row.status = "error"; row.error = e.message || String(e);
@@ -170,7 +172,7 @@
     const pao = $("#pao").value;
     for (const f of files) {
       if (!f.type.startsWith("image/")) continue;
-      const row = { key: nextKey++, file: f, url: URL.createObjectURL(f), pao, kind: "news", date: "", poster: "",
+      const row = { key: nextKey++, file: f, url: URL.createObjectURL(f), pao, kind: "news", date: $("#batch-date").value || "", poster: "",
         link: "", title: "", content: "", status: "waiting", progress: 0 };
       rows.push(row);
       $("#rows").insertAdjacentHTML("beforeend", `<li class="ocr-row" data-key="${row.key}"></li>`);
@@ -206,6 +208,7 @@
     $("#save").disabled = !ready.length || role === "viewer";
     $("#save").title = role === "viewer" ? "Viewers can download but not save to the tracker" : "";
     $("#clear").disabled = !rows.length;
+    $("#apply-date").disabled = !rows.length || !$("#batch-date").value;
     $("#empty").hidden = rows.length > 0;
     const waiting = rows.filter((r) => r.status === "waiting" || r.status === "reading").length;
     $("#count").textContent = rows.length ? `${rows.length} screenshot(s)${waiting ? `, ${waiting} still reading` : ""}` : "";
@@ -292,6 +295,7 @@
       if (!li || !f) return;
       const row = rows.find((r) => r.key === +li.dataset.key);
       row[f] = e.target.value;
+      if (f === "date") row.dateSetByHand = true;
       updateButtons();
     });
     $("#rows").addEventListener("click", (e) => {
@@ -309,6 +313,13 @@
     $("#dl-xlsx").addEventListener("click", () => download("xlsx").catch((e) => toast(e.message, true)));
     $("#dl-csv").addEventListener("click", () => download("csv").catch((e) => toast(e.message, true)));
     $("#save").addEventListener("click", saveToTracker);
+    $("#batch-date").addEventListener("input", updateButtons);
+    $("#apply-date").addEventListener("click", () => {
+      const d = $("#batch-date").value;
+      if (!d) return;
+      for (const r of rows) { r.date = d; r.dateSetByHand = true; const el = document.querySelector(`[data-key="${r.key}"] [data-f="date"]`); if (el) el.value = d; }
+      toast(`Date set to ${d} on all ${rows.length} row(s)`);
+    });
     $("#clear").addEventListener("click", () => {
       if (!confirm("Remove all screenshots from this page? (Anything not downloaded or saved is lost.)")) return;
       rows.splice(0).forEach((r) => URL.revokeObjectURL(r.url));

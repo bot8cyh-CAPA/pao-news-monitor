@@ -186,3 +186,14 @@ def test_ai_check_reports_each_model(monkeypatch):
     rows = ai.check(env={"GEMINI_API_KEY": "g", "AI_MODELS_SMART": "gemini:gemini-3.8-flash,gemini:x", "AI_MODELS_FAST": "gemini:x"})
     assert ("gemini:gemini-3.8-flash", True, "OK") in rows
     assert any(spec == "gemini:x" and not ok for spec, ok, _ in rows)
+
+
+def test_only_items_published_in_the_week(tmp_path):
+    store = make_store(tmp_path)
+    # found this week, but published in June -> out; found this week with no date -> in
+    store.data["items"]["june"] = dict(store.data["items"]["a"], id="june", title="ICAB elects leaders",
+                                       published_at="2026-06-10T00:00:00+00:00", first_seen_at="2026-10-17T00:00:00+00:00")
+    store.data["items"]["nodate"] = dict(store.data["items"]["a"], id="nodate", title="Undated notice",
+                                         published_at=None, first_seen_at="2026-10-17T00:00:00+00:00")
+    got = {i["id"] for i in brief.gather(store, NOW - __import__("datetime").timedelta(days=7))}
+    assert "june" not in got and "nodate" in got and "a" in got

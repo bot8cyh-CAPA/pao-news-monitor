@@ -25,9 +25,15 @@
 
   <main id="ocr" class="ocr-main" hidden>
     <section class="ocr-step">
-      <label class="ocr-pao">1. PAO for the next screenshots
-        <select id="pao"></select>
-      </label>
+      <div class="ocr-setup">
+        <label class="ocr-pao">1. PAO for the next screenshots
+          <select id="pao"></select>
+        </label>
+        <label class="ocr-pao">Date it happened <span class="muted small">(optional)</span>
+          <input type="date" id="batch-date">
+          <span class="muted small">Used when a screenshot shows no readable date.</span>
+        </label>
+      </div>
       <div id="drop" class="drop" tabindex="0">
         <p><b>2. Drop screenshots here</b>, <label class="link"><input type="file" id="files" accept="image/*" multiple hidden>choose files</label>,
           or paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</p>
@@ -42,6 +48,7 @@
           <button class="btn" id="dl-xlsx" type="button" disabled>Download Excel</button>
           <button class="btn ghost" id="dl-csv" type="button" disabled>Download CSV</button>
           <button class="btn primary" id="save" type="button" disabled>Save to tracker</button>
+          <button class="btn ghost" id="apply-date" type="button" disabled title="Set the date above on every row">Apply date to all</button>
           <button class="btn ghost" id="clear" type="button" disabled>Clear all</button>
         </div>
       </div>
