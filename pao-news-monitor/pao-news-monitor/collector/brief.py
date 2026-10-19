@@ -5,7 +5,7 @@
     python -m collector.brief --dry-run    # print the brief instead of saving
 
 1. Gather the week's items (everything except "Not relevant" and hidden first-scan links);
-   staff tags Regional / Country-specific steer what leads and what goes under Country updates.
+   staff tags Regional / Country-specific / PAO-specific steer what leads and what goes under Country updates or PAO updates.
 2. Tag each item with themes + a one-line English summary (fast AI model, in batches).
 3. Write the brief (stronger AI model): headlines, themes with regional implications and
    suggested CAPA actions, leadership changes, upcoming events/deadlines.
@@ -79,6 +79,10 @@ Bullets for any new presidents, CEOs, chairs or council results (useful for cong
 One short bullet per item marked COUNTRY-SPECIFIC by staff (and other clearly local-only news), grouped by country, with citations.
 These items go here only, not under the themes. If none, "None this week."
 
+## PAO updates
+One short bullet per item marked PAO-SPECIFIC by staff (news about the body itself: its own events, council, exams,
+CPD, awards, services), grouped by PAO, with citations. These items go here only, not under the themes. If none, "None this week."
+
 ## Upcoming events and deadlines
 Bullets for events, consultations or deadlines mentioned in the items, with dates only if the item states them. If none, "None found this week."
 """
@@ -102,7 +106,7 @@ def gather(store, since):
     items = store.items_since(since_iso)
     items = [i for i in items if not i.get("is_baseline") and i.get("relevance") != "not_relevant" and in_period(i, since_iso)]
     # same story found twice (e.g. two Google News searches): keep one, preferring a reviewed one
-    items.sort(key=lambda i: (i.get("relevance") in ("relevant", "country"), i.get("source") != "google_news"), reverse=True)
+    items.sort(key=lambda i: (i.get("relevance") in ("relevant", "country", "pao"), i.get("source") != "google_news"), reverse=True)
     seen, unique = set(), []
     for it in items:
         key = (it["pao_id"], re.sub(r"\W+", " ", (it.get("title") or "").lower()).strip())
@@ -153,7 +157,7 @@ def pick_for_brief(items):
     def score(it):
         return (it.get("source") == "page_watch" or bool(it.get("ai_leadership")),
                 it.get("relevance") == "relevant",
-                it.get("relevance") == "country",
+                it.get("relevance") in ("country", "pao"),
                 it.get("ai_importance") or 1,
                 it.get("published_at") or it.get("first_seen_at") or "")
     chosen = sorted(items, key=score, reverse=True)[:MAX_IN_BRIEF]
@@ -174,6 +178,8 @@ def numbered(items, paos):
             flags.append("staff: REGIONAL - important across the region")
         elif it.get("relevance") == "country":
             flags.append("staff: COUNTRY-SPECIFIC - put only in Country updates")
+        elif it.get("relevance") == "pao":
+            flags.append("staff: PAO-SPECIFIC - put only in PAO updates")
         if it.get("ai_leadership") or it.get("source") == "page_watch":
             flags.append("leadership/contact")
         lines.append(f"[{n}] {name} ({p.get('grp') or ''}, {p.get('jurisdiction') or ''}) | {KIND_LABEL.get(it.get('kind') or 'news', 'news')} | {date}"
@@ -243,7 +249,7 @@ def build(store, days=7, chain=None, now=None):
     paos = {p["id"]: p for p in store.load_pao_rows()}
     items = gather(store, start)
     notes = []
-    to_tag = sorted(items, key=lambda i: (i.get("relevance") not in ("relevant", "country"), SOURCE_PRIORITY.get(i.get("source"), 5)))[:MAX_TAGGED]
+    to_tag = sorted(items, key=lambda i: (i.get("relevance") not in ("relevant", "country", "pao"), SOURCE_PRIORITY.get(i.get("source"), 5)))[:MAX_TAGGED]
     if len(items) > len(to_tag):
         notes.append(f"{len(items)} items this week; AI-tagged the {len(to_tag)} most useful (relevant, leadership, websites and emails first)")
     tagged = tag(chain, to_tag, paos, notes) if to_tag else True

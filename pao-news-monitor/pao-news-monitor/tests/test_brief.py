@@ -203,8 +203,10 @@ def test_staff_tags_steer_the_brief(tmp_path):
     store = make_store(tmp_path)
     store.data["items"]["a"]["relevance"] = "relevant"
     store.data["items"]["b"]["relevance"] = "country"
+    store.data["items"]["e"]["relevance"] = "pao"
     lines, _ = brief.numbered(brief.pick_for_brief(brief.gather(store, NOW - __import__("datetime").timedelta(days=7))),
                               store.data["paos"])
     text = "\n".join(lines)
     assert "staff: REGIONAL" in text and "staff: COUNTRY-SPECIFIC" in text
-    assert "## Country updates" in brief.BRIEF_SYSTEM
+    assert "staff: PAO-SPECIFIC" in text
+    assert "## Country updates" in brief.BRIEF_SYSTEM and "## PAO updates" in brief.BRIEF_SYSTEM

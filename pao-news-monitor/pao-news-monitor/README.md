@@ -1,6 +1,6 @@
 # PAO News Monitor
 
-Every morning this tool checks the CAPA member bodies and stakeholders for news, publications, events and leadership changes, and puts what it finds on a web page grouped by organisation. Every organisation is listed, even when nothing was found. Your team decides what matters: mark items **Regional** (matters across Asia-Pacific / to CAPA), **Country-specific** (only matters locally) or **Not relevant**, give them a category, add notes, move an item to the right organisation if it was filed under the wrong one (**Move to another PAO**), then export to CSV for the newsletter. Regional items lead the weekly brief; country-specific ones go in its *Country updates* section.
+Every morning this tool checks the CAPA member bodies and stakeholders for news, publications, events and leadership changes, and puts what it finds on a web page grouped by organisation. Every organisation is listed, even when nothing was found. Your team decides what matters: mark items **Regional** (matters across Asia-Pacific / to CAPA), **Country-specific** (only matters in that country: laws, regulators), **PAO-specific** (about the body itself: its own events, council, exams, CPD) or **Not relevant**, give them a category, add notes, move an item to the right organisation if it was filed under the wrong one (**Move to another PAO**), then export to CSV for the newsletter. Regional items lead the weekly brief; country-specific ones go in its *Country updates* section and PAO-specific ones in *PAO updates*.
 
 **Where the news comes from**
 
@@ -122,7 +122,7 @@ In Supabase, go to **Authentication → Users → Invite user** and invite each 
 - **Translate** translates the headline (works for every source). **Translate page** opens the whole website page translated.
 - The **coloured dots** in the sidebar show health: green means fine, amber means needs a look, red means a source failed. The red/amber notes inside each PAO's box say exactly what's wrong.
 - An amber "**No new links for 60+ days**" note means that site may have changed in a way that hides new posts. Open the site and check.
-- **Export CSV** downloads exactly what's on screen. Set "Show: Regional + country-specific" and the period first to get your newsletter shortlist.
+- **Export CSV** downloads exactly what's on screen. Set "Show: All tagged" and the period first to get your newsletter shortlist.
 
 ## Fixing things yourself (no coding)
 

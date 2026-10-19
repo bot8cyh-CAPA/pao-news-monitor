@@ -202,7 +202,7 @@
   let ROLES = { admin: "Admin", team: "Team", viewer: "Viewer", removed: "No access" };
   let roleRows = [], rolePerms = {}, roleUse = {};
   const PERM_LABEL = {
-    tag_items: ["Tag items", "Regional / country-specific / not relevant, category, notes, type"],
+    tag_items: ["Tag items", "Regional / country / PAO-specific / not relevant, category, notes, type"],
     add_items: ["Add items", "+ Add item, Import, screenshots"],
     edit_briefs: ["Edit briefs", "Change the weekly brief text"],
     approve_briefs: ["Approve briefs", "Approve a brief or move it back to draft"],

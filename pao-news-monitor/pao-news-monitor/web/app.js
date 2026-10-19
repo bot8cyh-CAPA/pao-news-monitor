@@ -11,7 +11,7 @@
   const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
   const ALL_PERMS = ["tag_items","add_items","edit_briefs","approve_briefs","send_briefs","manage_mailing_list","manage_members"];
   const can = (p) => state.role === "admin" || (state.perms || []).includes(p);
-  const RELEVANCE_LABEL = { relevant: "Regional", country: "Country-specific", not_relevant: "Not relevant" };
+  const RELEVANCE_LABEL = { relevant: "Regional", country: "Country-specific", pao: "PAO-specific", not_relevant: "Not relevant" };
   const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", leadership: "Leadership change", contact: "Contact change" };
   const GROUP_ORDER = ["Member", "Associate", "Affiliate", "Stakeholder", "Inbox"];
   const GROUP_LABEL = { Member: "Members", Associate: "Associates", Affiliate: "Affiliates", Stakeholder: "Stakeholders", Inbox: "Inbox" };
@@ -188,7 +188,8 @@
     if (f.status === "unreviewed" && it.relevance) return false;
     if (f.status === "relevant" && it.relevance !== "relevant") return false;
     if (f.status === "country" && it.relevance !== "country") return false;
-    if (f.status === "tagged" && !["relevant", "country"].includes(it.relevance)) return false;
+    if (f.status === "pao" && it.relevance !== "pao") return false;
+    if (f.status === "tagged" && !["relevant", "country", "pao"].includes(it.relevance)) return false;
     if (f.status === "not_relevant" && it.relevance !== "not_relevant") return false;
     if (f.q) {
       const hay = `${it.title} ${translations[it.id] || ""} ${it.ai_summary || ""} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
@@ -347,7 +348,8 @@
       <div class="actions">
         <div class="seg" role="group" aria-label="Relevance">
           <button type="button" data-rel="relevant" aria-pressed="${it.relevance === "relevant"}" title="Matters across Asia-Pacific / to CAPA as a whole"${ro}>Regional</button>
-          <button type="button" data-rel="country" aria-pressed="${it.relevance === "country"}" title="Only matters in that country"${ro}>Country-specific</button>
+          <button type="button" data-rel="country" aria-pressed="${it.relevance === "country"}" title="Only matters in that country (laws, regulators, the profession there)"${ro}>Country-specific</button>
+          <button type="button" data-rel="pao" aria-pressed="${it.relevance === "pao"}" title="About the PAO itself (its own events, council, exams, CPD, awards)"${ro}>PAO-specific</button>
           <button type="button" data-rel="not_relevant" aria-pressed="${it.relevance === "not_relevant"}"${ro}>Not relevant</button>
         </div>
         <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category"${ro}>

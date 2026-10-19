@@ -12,6 +12,8 @@
   --error: #b42318;
   --error-soft: #fdecea;
   --relevant: #e6f2ea;
+  --pao: #5b4a9e;
+  --pao-soft: #eeeaf7;
   --radius: 10px;
   color-scheme: light;
 }
@@ -19,7 +21,7 @@
   :root {
     --bg: #161715; --panel: #1f201e; --ink: #ecebe6; --muted: #a09f98; --line: #34352f;
     --accent: #5fb3ad; --accent-soft: #1d3332; --ok: #6cc08b; --warn: #e0a84a; --warn-soft: #3a2f1b;
-    --error: #f0857b; --error-soft: #3d201d; --relevant: #1d3024; color-scheme: dark;
+    --error: #f0857b; --error-soft: #3d201d; --relevant: #1d3024; --pao: #8f7fd6; --pao-soft: #2a2540; color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
@@ -122,6 +124,7 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .item { border-top: 1px solid var(--line); padding: 10px 0; }
 .item.relevant { background: linear-gradient(90deg, var(--relevant), transparent 70%); margin: 0 -16px; padding: 10px 16px; }
 .item.country { background: linear-gradient(90deg, var(--accent-soft), transparent 70%); margin: 0 -16px; padding: 10px 16px; }
+.item.pao { background: linear-gradient(90deg, var(--pao-soft), transparent 70%); margin: 0 -16px; padding: 10px 16px; }
 .item.not_relevant h4, .item.not_relevant .snippet { opacity: .5; }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; align-items: center; color: var(--muted); }
 .src { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 1px 7px; border-radius: 4px; background: var(--line); color: var(--ink); }
@@ -146,6 +149,7 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .seg button[data-rel=relevant][aria-pressed=true] { background: var(--ok); color: #fff; }
 .seg button[data-rel=not_relevant][aria-pressed=true] { background: var(--muted); color: #fff; }
 .seg button[data-rel=country][aria-pressed=true] { background: var(--accent); color: #fff; }
+.seg button[data-rel=pao][aria-pressed=true] { background: var(--pao); color: #fff; }
 .actions .cat { width: 190px; font-size: 13px; padding: 4px 8px; }
 .actions .kind-pick, .actions .pao-pick { font-size: 13px; padding: 4px 6px; }
 .actions .pao-pick { max-width: 260px; }
@@ -174,7 +178,7 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
   .filters { position: static; }
   .pao-head { flex-direction: column; }
   .actions .cat, .actions .notes { flex: 1 1 100%; width: auto; }
-  .item.relevant, .item.country { margin: 0 -16px; }
+  .item.relevant, .item.country, .item.pao { margin: 0 -16px; }
 }
 
 /* ---- Members / People / Import ---- */
