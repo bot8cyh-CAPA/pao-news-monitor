@@ -162,6 +162,11 @@ def cli():
     store = get_store(False)
     if not hasattr(store, "briefs_to_send"):
         sys.exit("No database configured")
+    try:
+        store.briefs_to_send()
+    except RuntimeError as e:   # database not updated yet (update-6.sql): skip quietly instead of failing every 10 minutes
+        print(f"::warning title=Send brief::Not ready - run supabase/update-6.sql ({str(e)[:150]})")
+        return
     for bid, ok, detail in send_pending(store):
         print(f"::{'notice' if ok else 'error'} title=Send brief::brief {bid}: {detail}")
 
