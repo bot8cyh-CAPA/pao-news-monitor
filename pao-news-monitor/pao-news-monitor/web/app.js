@@ -9,7 +9,7 @@
   const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
   const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team", page_watch: "Page watch" };
   const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
-  const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", leadership: "Leadership change", contact: "Contact change" };
+  const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", leadership: "Leadership change", contact: "Contact change" };
   const GROUP_ORDER = ["Member", "Associate", "Affiliate", "Stakeholder", "Inbox"];
   const GROUP_LABEL = { Member: "Members", Associate: "Associates", Affiliate: "Affiliates", Stakeholder: "Stakeholders", Inbox: "Inbox" };
   const STALE_DAYS = 60;
@@ -162,7 +162,8 @@
       let path = it.url;
       try { path = new URL(it.url).pathname; } catch { /* keep */ }
       if (/\/(events?|seminars?|webinars?|conferences?|workshops?|cpd|cpe)(\/|-|_|\b)/i.test(path)) return "events";
-      if (/\/(publications?|journals?|magazines?|newsletters?|reports?|library|resources)(\/|-|_|\b)|\.pdf($|\?)/i.test(it.url)) return "publications";
+      if (/\/(newsletters?|e-?newsletters?|articles?|blogs?|insights?|opinions?|columns?)(\/|-|_|\b)/i.test(path)) return "articles";
+      if (/\/(publications?|journals?|magazines?|reports?|library|resources)(\/|-|_|\b)|\.pdf($|\?)/i.test(it.url)) return "publications";
     }
     return "news";
   }
@@ -341,7 +342,7 @@
         </div>
         <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category"${ro}>
         <input class="notes" value="${esc(it.notes || "")}" placeholder="Notes" aria-label="Notes"${ro}>
-        ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type"${ro}>${["news", "events", "publications"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
+        ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type"${ro}>${["news", "events", "publications", "articles"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
         ${nonEnglish(it) ? `<button class="link small" type="button" data-translate="${esc(it.id)}" title="Show the headline in English (Google Translate)">${showingEnglish.has(it.id) ? "Show original" : "Translate"}</button>` : ""}
         ${nonEnglish(it) && canTranslatePage(it) ? `<a class="link small" href="${esc(pageTranslateUrl(it.url))}" target="_blank" rel="noopener" title="Open the whole page translated">Translate page</a>` : ""}
         ${reviewed}

@@ -9,7 +9,7 @@
   const TESSERACT_JS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
   const XLSX_JS = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
   const GROUPS = ["Member", "Associate", "Affiliate", "Stakeholder"];
-  const TYPES = { news: "News", events: "Event", publications: "Publication" };
+  const TYPES = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article" };
   // Google News edition / language -> OCR language(s); English is always added for names and dates
   const OCR_LANG = { zh: "chi_sim", "zh-HK": "chi_tra", "zh-TW": "chi_tra", ja: "jpn", ko: "kor", vi: "vie", fr: "fra",
     mn: "mon", ne: "nep", bn: "ben", th: "tha", id: "ind", ms: "msa", hi: "hin", si: "sin", ur: "urd", km: "khm", lo: "lao", my: "mya" };

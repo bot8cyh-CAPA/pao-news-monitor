@@ -45,8 +45,8 @@ NEWS_WORDS = [
 _NEWS_RX = re.compile("|".join(re.escape(w) for w in NEWS_WORDS), re.I)
 
 PUBLICATION_WORDS = [
-    "publication", "journal", "magazine", "newsletter", "e-book", "ebook", "resources", "library",
-    "research", "reports", "insights", "thought leadership",
+    "publication", "journal", "magazine", "e-book", "ebook", "resources", "library",
+    "research", "reports",
     "刊物", "出版", "期刊", "杂志", "雜誌", "会刊", "會刊", "刊行物", "出版物", "간행물", "발간", "출판",
     "ấn phẩm", "an-pham", "tạp chí", "tap-chi", "publications", "revue", "प्रकाशन", "पत्रिका",
 ]
@@ -56,13 +56,20 @@ EVENT_WORDS = [
     "活动", "活動", "研讨会", "研討會", "讲座", "講座", "イベント", "セミナー", "研修", "행사", "세미나", "교육",
     "sự kiện", "su-kien", "hội thảo", "hoi-thao", "événement", "evenement", "congrès", "कार्यक्रम",
 ]
+ARTICLE_WORDS = [
+    "newsletter", "e-newsletter", "enewsletter", "article", "blog", "insights", "thought leadership", "opinion",
+    "column", "perspectives", "viewpoint", "feature", "bulletin board",
+    "通讯", "通訊", "简报", "簡報", "专栏", "專欄", "文章", "コラム", "ニュースレター", "칼럼", "뉴스레터", "bản tin", "ban-tin",
+]
 _PUB_RX = re.compile("|".join(re.escape(w) for w in PUBLICATION_WORDS), re.I)
+_ARTICLE_RX = re.compile("|".join(re.escape(w) for w in ARTICLE_WORDS), re.I)
 _EVENT_RX = re.compile("|".join(re.escape(w) for w in EVENT_WORDS), re.I)
 # item addresses that clearly say what they are
 _ITEM_EVENT_RX = re.compile(r"/(events?|seminars?|webinars?|conferences?|workshops?|cpd|cpe)(/|-|_|\b)", re.I)
-_ITEM_PUB_RX = re.compile(r"/(publications?|journals?|magazines?|newsletters?|reports?|library|resources)(/|-|_|\b)|\.pdf($|\?)", re.I)
-KINDS = ("news", "publications", "events")
-MAX_PAGES = {"news": 3, "publications": 2, "events": 2}
+_ITEM_PUB_RX = re.compile(r"/(publications?|journals?|magazines?|reports?|library|resources)(/|-|_|\b)|\.pdf($|\?)", re.I)
+_ITEM_ARTICLE_RX = re.compile(r"/(newsletters?|e-?newsletters?|articles?|blogs?|insights?|opinions?|columns?)(/|-|_|\b)", re.I)
+KINDS = ("news", "publications", "events", "articles")
+MAX_PAGES = {"news": 3, "publications": 2, "events": 2, "articles": 2}
 
 
 def page_kind(text, path=""):
@@ -70,7 +77,11 @@ def page_kind(text, path=""):
     for hay in (text, path):
         if not hay:
             continue
-        pub, ev, news = _PUB_RX.search(hay), _EVENT_RX.search(hay), _NEWS_RX.search(hay)
+        art = _ARTICLE_RX.search(hay)
+        rest = _ARTICLE_RX.sub(" ", hay)          # "newsletter" must not count as "news"
+        pub, ev, news = _PUB_RX.search(rest), _EVENT_RX.search(rest), _NEWS_RX.search(rest)
+        if art and not news:
+            return "articles"
         if pub and not news:
             return "publications"
         if ev and not news:
@@ -85,6 +96,8 @@ def item_kind(url, page_kind_):
     path = urlsplit(url).path
     if _ITEM_EVENT_RX.search(path):
         return "events"
+    if _ITEM_ARTICLE_RX.search(path):
+        return "articles"
     if _ITEM_PUB_RX.search(url):
         return "publications"
     return page_kind_ or "news"
@@ -174,6 +187,7 @@ def find_listing_pages(soup, base_url, site_domain):
             seen.add(n)
             found[kind].append(href)
     prefer = {"news": r"news|press|media|公告|お知らせ|뉴스", "publications": r"publication|journal|magazine",
+              "articles": r"newsletter|article|insight|blog",
               "events": r"event|seminar|webinar"}
     for kind, urls in found.items():
         urls.sort(key=lambda u: (0 if re.search(prefer[kind], u, re.I) else 1, len(u)))

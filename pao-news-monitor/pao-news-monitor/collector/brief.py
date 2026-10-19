@@ -36,7 +36,7 @@ BATCH = 35              # items per tagging request
 MAX_TAGGED = 280        # items tagged per week, most useful first (keeps within free AI quotas)
 SOURCE_PRIORITY = {"page_watch": 0, "manual": 1, "email": 1, "website": 2, "newsapi": 3, "google_news": 4}
 MAX_IN_BRIEF = 70       # items given to the writer
-KIND_LABEL = {"news": "news", "events": "event", "publications": "publication",
+KIND_LABEL = {"news": "news", "events": "event", "publications": "publication", "articles": "newsletter/article",
               "leadership": "leadership change (website)", "contact": "contact change (website)"}
 
 TAG_SYSTEM = """You tag news items for CAPA, the Confederation of Asian and Pacific Accountants, a regional body whose

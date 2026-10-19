@@ -332,7 +332,8 @@
     link: ["link", "url"],
     language: ["language", "lang"],
   };
-  const TYPE_MAP = { news: "news", event: "events", events: "events", publication: "publications", publications: "publications" };
+  const TYPE_MAP = { news: "news", event: "events", events: "events", publication: "publications", publications: "publications",
+    newsletter: "articles", newsletters: "articles", article: "articles", articles: "articles", "newsletter / article": "articles", "newsletter/article": "articles" };
   let pending = [];
 
   function findPao(v) {

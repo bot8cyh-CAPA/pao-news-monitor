@@ -231,3 +231,13 @@ def test_member_list_falls_back_to_csv_before_db_update(monkeypatch, tmp_path):
     got = main.member_list(store, problems=["paos member-list columns"])
     assert [p.id for p in got] == ["icai"]
     assert "config_seeded" not in store.data["paos"]["icai"]
+
+
+def test_newsletter_and_article_type():
+    assert websites.page_kind("Newsletter") == "articles"
+    assert websites.page_kind("Insights & Articles") == "articles"
+    assert websites.page_kind("Publications") == "publications"
+    assert websites.page_kind("News & Insights") == "news"
+    assert websites.item_kind("https://x.org/newsletter/oct-2026", "news") == "articles"
+    assert websites.item_kind("https://x.org/blog/ai-and-audit", "news") == "articles"
+    assert websites.item_kind("https://x.org/library/report.pdf", "news") == "publications"
