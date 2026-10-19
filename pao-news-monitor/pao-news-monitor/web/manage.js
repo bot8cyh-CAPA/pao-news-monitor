@@ -13,7 +13,9 @@
     "news_locale", "link_selector", "active", "notes", "facebook", "leadership_url", "contact_url"];
 
   const isAdmin = () => A.state.role === "admin";
-  const canEdit = () => A.state.role === "admin" || A.state.role === "team";
+  const can = (p) => A.can(p);
+  const canEdit = () => can("add_items");
+  const seesAdminTab = () => isAdmin() || can("manage_members") || can("manage_mailing_list");
   const me = () => A.state.user?.email || "";
 
   function loadScript(src) {
@@ -38,7 +40,7 @@
 
   // show/hide header buttons once the role is known
   new MutationObserver(() => {
-    document.querySelectorAll(".admin-only").forEach((el) => (el.hidden = !isAdmin()));
+    document.querySelectorAll(".admin-only").forEach((el) => (el.hidden = !seesAdminTab()));
     document.querySelectorAll(".edit-only").forEach((el) => (el.hidden = !canEdit()));
   }).observe(document.body, { attributes: true, attributeFilter: ["data-role"] });
   document.querySelectorAll(".admin-only, .edit-only").forEach((el) => (el.hidden = true));
@@ -74,7 +76,12 @@
     document.querySelector(".filters").hidden = true;
     document.querySelector(".layout").hidden = true;
     window.scrollTo(0, 0);
-    showPeople(); showMembers(); showMailingList();
+    $("#panel-people").hidden = $("#panel-roles").hidden = !isAdmin();
+    $("#panel-mailing").hidden = !can("manage_mailing_list");
+    $("#panel-members").hidden = !can("manage_members");
+    if (isAdmin()) { showRoles().then(showPeople); }
+    if (can("manage_mailing_list")) showMailingList();
+    if (can("manage_members")) showMembers();
   }
   function closeAdmin() {
     $("#admin-view").hidden = true;
@@ -192,7 +199,88 @@
   });
 
   // ================= People =================
-  const ROLES = { admin: "Admin", team: "Team", viewer: "Viewer", removed: "No access" };
+  let ROLES = { admin: "Admin", team: "Team", viewer: "Viewer", removed: "No access" };
+  let roleRows = [], rolePerms = {}, roleUse = {};
+  const PERM_LABEL = {
+    tag_items: ["Tag items", "Regional / country-specific / not relevant, category, notes, type"],
+    add_items: ["Add items", "+ Add item, Import, screenshots"],
+    edit_briefs: ["Edit briefs", "Change the weekly brief text"],
+    approve_briefs: ["Approve briefs", "Approve a brief or move it back to draft"],
+    send_briefs: ["Send briefs", "Email approved briefs to the mailing list"],
+    manage_mailing_list: ["Mailing list", "Add, pause, remove recipients"],
+    manage_members: ["Members", "Add, edit, deactivate PAOs"],
+  };
+  let demoRoles = [{ name: "admin", label: "Admin", builtin: true }, { name: "team", label: "Team", builtin: true }, { name: "viewer", label: "Viewer", builtin: true }];
+  let demoPerms = [{ role: "team", permission: "tag_items" }, { role: "team", permission: "add_items" }, { role: "team", permission: "edit_briefs" }];
+  async function loadRoles() {
+    let rows, perms;
+    if (A.DEMO) { rows = demoRoles; perms = demoPerms; }
+    else {
+      const r = await A.db.from("roles").select("*").order("created_at");
+      if (r.error) {   // before update-8: fixed roles
+        rows = demoRoles; perms = demoPerms; rolesReady = false;
+      } else {
+        const p = await A.db.from("role_permissions").select("*");
+        if (p.error) throw p.error;
+        rows = r.data; perms = p.data; rolesReady = true;
+      }
+    }
+    roleRows = rows;
+    rolePerms = {};
+    for (const x of perms) (rolePerms[x.role] ||= new Set()).add(x.permission);
+    ROLES = Object.fromEntries(rows.map((x) => [x.name, x.label]).concat([["removed", "No access"]]));
+    $("#person-role").innerHTML = rows.filter((x) => x.name !== "admin").concat(rows.filter((x) => x.name === "admin"))
+      .map((x) => `<option value="${esc(x.name)}">${esc(x.label)}</option>`).join("");
+  }
+  let rolesReady = true;
+  async function showRoles() {
+    $("#roles-table").innerHTML = "<tbody><tr><td>Loading…</td></tr></tbody>";
+    try { await loadRoles(); } catch (e) { $("#roles-table").innerHTML = `<tbody><tr><td class="error-box">${esc(friendly(e))}</td></tr></tbody>`; return; }
+    const perms = Object.keys(PERM_LABEL);
+    $("#roles-table").innerHTML = (rolesReady ? "" : `<caption class="warn-text small">Run supabase/update-8.sql to create roles and change permissions.</caption>`) +
+      `<thead><tr><th>Role</th>${perms.map((p) => `<th title="${esc(PERM_LABEL[p][1])}">${esc(PERM_LABEL[p][0])}</th>`).join("")}<th>People</th><th></th></tr></thead><tbody>` +
+      roleRows.map((r) => {
+        const isAdm = r.name === "admin";
+        return `<tr><td><b>${esc(r.label)}</b>${r.builtin ? "" : " <span class='muted small'>(custom)</span>"}</td>
+          ${perms.map((p) => `<td class="perm-cell"><input type="checkbox" data-perm="${p}" data-role="${esc(r.name)}"
+            ${isAdm || rolePerms[r.name]?.has(p) ? "checked" : ""} ${isAdm || !rolesReady ? "disabled" : ""} aria-label="${esc(r.label)}: ${esc(PERM_LABEL[p][0])}"></td>`).join("")}
+          <td class="muted small">${roleUse[r.name] || 0}</td>
+          <td>${isAdm ? "<span class='muted small'>always everything</span>" : `<button class="link small" data-role-delete="${esc(r.name)}" type="button">Delete</button>`}</td></tr>`;
+      }).join("") + "</tbody>";
+  }
+  $("#roles-table").addEventListener("change", async (e) => {
+    const cb = e.target.closest("[data-perm]");
+    if (!cb) return;
+    const role = cb.dataset.role, perm = cb.dataset.perm, on = cb.checked;
+    try {
+      if (A.DEMO) { if (on) demoPerms.push({ role, permission: perm }); else demoPerms = demoPerms.filter((x) => !(x.role === role && x.permission === perm)); }
+      else { const { error } = await A.db.rpc("set_role_permission", { role_name: role, perm, granted: on }); if (error) throw error; }
+      (rolePerms[role] ||= new Set())[on ? "add" : "delete"](perm);
+      A.toast(`${ROLES[role]}: "${PERM_LABEL[perm][0]}" ${on ? "allowed" : "removed"}`);
+    } catch (err) { cb.checked = !on; A.toast("Couldn't change: " + friendly(err), true); }
+  });
+  $("#roles-table").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-role-delete]");
+    if (!b) return;
+    const role = b.dataset.roleDelete;
+    if (!confirm(`Delete the role "${ROLES[role]}"? (Only possible when nobody has it.)`)) return;
+    try {
+      if (A.DEMO) { if (roleUse[role]) throw new Error("Some people still have this role - give them another role first"); demoRoles = demoRoles.filter((x) => x.name !== role); }
+      else { const { error } = await A.db.rpc("delete_role", { role_name: role }); if (error) throw error; }
+      A.toast("Role deleted"); await showRoles(); showPeople();
+    } catch (err) { A.toast("Couldn't delete: " + friendly(err), true); }
+  });
+  $("#role-add").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const label = e.target.elements.label.value.trim();
+    const name = label.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
+    if (name.length < 2 || name === "removed") return A.toast("Please use a different name", true);
+    try {
+      if (A.DEMO) { if (demoRoles.some((x) => x.name === name)) throw new Error("A role with that name already exists"); demoRoles.push({ name, label, builtin: false }); }
+      else { const { error } = await A.db.rpc("create_role", { role_name: name, role_label: label }); if (error) throw error; }
+      e.target.reset(); A.toast(`Created "${label}" - now tick what it may do`); await showRoles(); showPeople();
+    } catch (err) { A.toast("Couldn't create: " + friendly(err), true); }
+  });
   let demoPeople = [
     { email: "demo@example.org", role: "admin", signed_up: true, last_sign_in_at: new Date().toISOString() },
     { email: "colleague@example.org", role: "team", signed_up: true },
@@ -203,6 +291,9 @@
     try {
       const people = A.DEMO ? demoPeople
         : await (async () => { const { data, error } = await A.db.rpc("list_people"); if (error) throw error; return data; })();
+      roleUse = {};
+      for (const p of people) roleUse[p.role] = (roleUse[p.role] || 0) + 1;
+      document.querySelectorAll("#roles-table tbody tr").forEach((tr, i) => { const r = roleRows[i]; if (r && tr.cells[tr.cells.length - 2]) tr.cells[tr.cells.length - 2].textContent = roleUse[r.name] || 0; });
       $("#people-table").innerHTML = `<thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Role last changed</th></tr></thead>
         <tbody>${people.map((p) => `<tr class="${p.role === "removed" ? "inactive" : ""}">
           <td>${esc(p.email)}${p.email === me() ? " <span class='muted small'>(you)</span>" : ""}</td>
@@ -216,6 +307,7 @@
     if (A.DEMO) {
       const p = demoPeople.find((x) => x.email === email);
       if (p) p.role = role; else demoPeople.push({ email, role, signed_up: false });
+      if (role !== "admin" && !demoPeople.some((x) => x.role === "admin" && x.email !== email)) { if (p) p.role = "admin"; throw new Error("There must always be at least one admin"); }
       return;
     }
     const { error } = await A.db.rpc("set_role", { target_email: email, new_role: role });
@@ -243,7 +335,7 @@
     try {
       await setRole(email, role);
       A.toast(`${email}: ${ROLES[role]}`);
-      if (email === me()) { A.state.role = role; document.body.dataset.role = role; A.render(); if (role !== "admin") closeAdmin(); }
+      if (email === me()) { setTimeout(() => location.reload(), 800); }   // reload with the new permissions
       showPeople();
     } catch (err) { A.toast("Couldn't change role: " + friendly(err), true); showPeople(); }
   });

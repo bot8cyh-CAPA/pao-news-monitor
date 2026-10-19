@@ -9,6 +9,8 @@
   const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
   const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team", page_watch: "Page watch" };
   const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
+  const ALL_PERMS = ["tag_items","add_items","edit_briefs","approve_briefs","send_briefs","manage_mailing_list","manage_members"];
+  const can = (p) => state.role === "admin" || (state.perms || []).includes(p);
   const RELEVANCE_LABEL = { relevant: "Regional", country: "Country-specific", not_relevant: "Not relevant" };
   const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", leadership: "Leadership change", contact: "Contact change" };
   const GROUP_ORDER = ["Member", "Associate", "Affiliate", "Stakeholder", "Inbox"];
@@ -25,7 +27,7 @@
     const h = new URLSearchParams(location.hash.replace(/^#/, "")), q = new URLSearchParams(location.search);
     return { type: h.get("type") || q.get("type") || "", error: h.get("error_description") || q.get("error_description") || "" };
   })();
-  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team" };
+  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team", perms: [] };
   let db = null;
 
   // ---------- data layer ----------
@@ -36,6 +38,7 @@
         this.demo = await res.json();
         state.user = { email: "demo@example.org" };
         state.role = "admin";
+        state.perms = ALL_PERMS.slice();
         return true;
       }
       await loadScript(SUPABASE_JS);
@@ -55,6 +58,9 @@
       if (DEMO || !state.user) return;
       const { data, error } = await db.rpc("my_role");
       state.role = error ? "team" : (data || "team");   // database not updated yet: everyone is team
+      const p = await db.rpc("my_permissions");
+      state.perms = !p.error && Array.isArray(p.data) ? p.data      // before update-8: built-in defaults
+        : state.role === "admin" ? ALL_PERMS.slice() : state.role === "team" ? ["tag_items", "add_items", "edit_briefs"] : [];
     },
     async signIn(email, password) {
       const { error } = await db.auth.signInWithPassword({ email, password });
@@ -310,7 +316,7 @@
         <div class="pao-tools">
           ${isInbox ? "" : `<a class="btn ghost small" target="_blank" rel="noopener" title="Check LinkedIn by hand" href="https://www.linkedin.com/search/results/content/?keywords=${searchName}&sortBy=%22date_posted%22">LinkedIn</a>`}
           ${p.facebook ? `<a class="btn ghost small" target="_blank" rel="noopener" title="Check their Facebook page by hand" href="${esc(p.facebook)}">Facebook</a>` : ""}
-          ${state.role === "viewer" ? "" : `<button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>`}
+          ${can("add_items") ? `<button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>` : ""}
         </div>
       </header>
       ${hs.length ? `<div class="health">${hs.map((h) => `<span class="chip ${h.level}" title="${esc(h.text)}">${esc(SOURCE_LABEL[h.src])}${h.when ? ` · ${ago(h.when)}` : ""}</span>`).join("")}
@@ -320,7 +326,7 @@
   }
 
   function card(it) {
-    const ro = state.role === "viewer" ? " disabled" : "";
+    const ro = can("tag_items") ? "" : " disabled";
     const reviewed = it.reviewed_by ? `<span class="muted small">by ${esc(it.reviewed_by.split("@")[0])} ${ago(it.reviewed_at)}</span>` : "";
     return `<li class="item ${it.relevance || ""}" data-id="${esc(it.id)}">
       <div class="meta">
@@ -358,7 +364,7 @@
     const r = state.lastRun;
     $("#last-run").textContent = r ? `Last checked ${ago(r.finished_at)} · ${r.summary?.new ?? 0} new that run` : "Not run yet";
     $("#user").textContent = (state.user?.email || "") + (state.role && state.role !== "team" ? ` (${state.role})` : "");
-    document.body.dataset.role = state.role;
+    document.body.dataset.role = state.role + ":" + state.perms.join(",");
     const inbox = state.health.find((h) => h.pao_id === "_inbox" && h.source === "email");
     const el = $("#inbox-status");
     if (!inbox) { el.hidden = true; return; }
@@ -591,7 +597,7 @@
   }).observe($(".filters"));
 
   // shared with manage.js (Members, People, Import)
-  window.PAOApp = { api, state, reload, render, toast, esc, get db() { return db; }, DEMO, CFG, kindLabel: KIND_LABEL };
+  window.PAOApp = { api, state, reload, render, toast, esc, get db() { return db; }, DEMO, CFG, kindLabel: KIND_LABEL, can, ALL_PERMS };
 
   restoreFilters();
   wire();

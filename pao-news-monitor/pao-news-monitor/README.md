@@ -16,7 +16,7 @@ Every morning this tool checks the CAPA member bodies and stakeholders for news,
 LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
 
 ### Updating from an earlier version
-If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`, then `update-6.sql`, then `update-7.sql`.)
+If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`, then `update-6.sql`, then `update-7.sql`, then `update-8.sql`.)
 
 ## Sign-in (email + password)
 People sign in with their email and a password. Email is only used to confirm a new account and for "Forgot password".
@@ -41,16 +41,13 @@ Open it with **Weekly brief** at the top of the tracker. Team members can **Edit
 
 **Sending it:** admins keep a **Mailing list** on the Admin tab (add one by one, or paste many from Outlook/Excel; pause or remove anyone). On an approved brief, **Send to mailing list… → Send now** queues it; within about 10 minutes it's emailed from the monitor's Gmail as "CAPA News Monitor", with everyone in **BCC** and replies going to the admin who pressed Send. The brief then shows who sent it, when and to how many (or the error, if sending failed). Change of mind before it goes? **Cancel sending**. The staff-only "draft written by AI" banner is replaced by a short note that it was prepared with AI and reviewed by CAPA staff. Prefer to send it yourself? The same box has **send it from your own Outlook** (copies the brief and opens Outlook with the list in BCC).
 
-Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql` and `update-7.sql` once.
+Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql`, `update-7.sql` and `update-8.sql` once.
 
-## Roles
-| Role | Can |
-|---|---|
-| **Admin** | Everything, plus **Members** (add / edit / deactivate PAOs) and **People** (give roles) |
-| **Team** | Tag items, add items, Import, Screenshots (OCR), export. Everyone invited starts as Team. |
-| **Viewer** | Read and export only |
-
-Add people, change roles or remove access (**No access**) on the tracker's **Admin** tab. There must always be at least one admin. The rules are enforced by the database, not just the page.
+## Roles and permissions
+Admins manage these on the **Admin** tab.
+- **Roles:** create a role (e.g. "Comms team") and tick what it may do: *Tag items*, *Add items* (incl. Import and screenshots), *Edit briefs*, *Approve briefs*, *Send briefs*, *Mailing list*, *Members*. **Admin** always has everything and can't be changed. **Team** (tag, add, edit briefs) and **Viewer** (read and export only) are ready-made and editable. A role can be deleted once nobody has it.
+- **People:** type an email, pick a role, **Give access**; they then click **First time here** on the tracker to create their password. Change anyone's role, or pick **No access**. There must always be at least one admin.
+- Only admins can manage people and roles. People see only the buttons and Admin-tab sections their role allows, and the database enforces the same rules.
 
 ## Members (the PAO list)
 Admins manage the list on the tracker's **Admin** tab (Members): add a PAO (name, abbreviation, group, country, website; Google News searches are suggested from the name), edit any setting, or **Deactivate** (hidden and no longer collected, past items kept, can be reactivated). **Delete permanently** also deletes everything collected for that PAO; use it only for mistakes like duplicates. Changes apply from the next collection. **Download list (CSV)** gives a backup copy.

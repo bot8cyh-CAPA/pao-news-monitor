@@ -285,3 +285,8 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 .ocr-setup { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
 .ocr-setup .ocr-pao { flex: 1 1 280px; }
 .ocr-setup input[type=date] { max-width: 200px; font-weight: normal; }
+.roles-grid th { white-space: normal; min-width: 70px; text-align: center; }
+.roles-grid th:first-child, .roles-grid td:first-child { text-align: left; }
+.roles-grid .perm-cell { text-align: center; }
+.roles-grid input[type=checkbox] { width: 18px; height: 18px; }
+.roles-grid caption { text-align: left; padding: 6px 10px; }

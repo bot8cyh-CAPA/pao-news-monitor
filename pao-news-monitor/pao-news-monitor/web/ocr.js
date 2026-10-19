@@ -16,7 +16,7 @@
 
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  let db = null, user = null, role = "team", paos = [];
+  let db = null, user = null, role = "team", canSave = true, paos = [];
   const rows = [];   // { key, file, url, pao, kind, date, poster, link, title, content, status, progress }
   let nextKey = 1;
 
@@ -47,6 +47,8 @@
     if (!user) return false;
     const r = await db.rpc("my_role");
     role = r.error ? "team" : (r.data || "team");
+    const p = await db.rpc("my_permissions");
+    canSave = role === "admin" || (!p.error && Array.isArray(p.data) ? p.data.includes("add_items") : role === "team");
     const { data: list, error } = await db.from("paos").select("*").eq("active", true).neq("id", "_unmatched_email").order("sort_order");
     if (error) throw error;
     paos = list;
@@ -205,8 +207,8 @@
   function updateButtons() {
     const ready = rows.filter((r) => r.status === "done" || r.title || r.content);
     for (const id of ["#dl-xlsx", "#dl-csv"]) $(id).disabled = !ready.length;
-    $("#save").disabled = !ready.length || role === "viewer";
-    $("#save").title = role === "viewer" ? "Viewers can download but not save to the tracker" : "";
+    $("#save").disabled = !ready.length || !canSave;
+    $("#save").title = canSave ? "" : "Your role can download but not save to the tracker";
     $("#clear").disabled = !rows.length;
     $("#apply-date").disabled = !rows.length || !$("#batch-date").value;
     $("#empty").hidden = rows.length > 0;

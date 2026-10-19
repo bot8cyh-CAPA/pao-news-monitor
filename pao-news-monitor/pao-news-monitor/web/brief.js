@@ -7,8 +7,9 @@
   const esc = A.esc;
   let briefs = [], current = null, editing = false;
 
-  const canEdit = () => A.state.role === "admin" || A.state.role === "team";
-  const isAdmin = () => A.state.role === "admin";
+  const canEdit = () => A.can("edit_briefs");
+  const canApprove = () => A.can("approve_briefs");
+  const canSend = () => A.can("send_briefs");
   const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "");
 
   // ---------- safe Markdown -> HTML (everything is escaped first) ----------
@@ -92,10 +93,10 @@
     }
     t.innerHTML = [
       canEdit() ? `<button class="btn" id="brief-edit" type="button">Edit</button>` : "",
-      isAdmin() ? `<button class="btn ${current.status === "approved" ? "ghost" : "primary"}" id="brief-approve" type="button">${current.status === "approved" ? "Back to draft" : "Approve"}</button>` : "",
-      isAdmin() && current.status === "approved" && current.send_requested_at && !current.sent_at
+      canApprove() ? `<button class="btn ${current.status === "approved" ? "ghost" : "primary"}" id="brief-approve" type="button">${current.status === "approved" ? "Back to draft" : "Approve"}</button>` : "",
+      canSend() && current.status === "approved" && current.send_requested_at && !current.sent_at
         ? `<button class="btn" id="brief-cancel-send" type="button">Cancel sending</button>`
-        : isAdmin() && current.status === "approved" ? `<button class="btn primary" id="brief-send" type="button">${current.sent_at ? "Send again…" : "Send to mailing list…"}</button>` : "",
+        : canSend() && current.status === "approved" ? `<button class="btn primary" id="brief-send" type="button">${current.sent_at ? "Send again…" : "Send to mailing list…"}</button>` : "",
       `<button class="btn ghost" id="brief-copy" type="button" title="Copy with formatting, then paste into an Outlook email">Copy for email</button>`,
       `<button class="btn ghost" id="brief-word" type="button">Download Word</button>`,
     ].join("");

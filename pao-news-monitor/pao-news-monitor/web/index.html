@@ -89,20 +89,31 @@
         <button class="btn" id="admin-back" type="button">← Back to news</button>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="panel-people">
         <h3>People</h3>
-        <p class="muted small"><b>Admin</b>: everything, including this tab. <b>Team</b>: tag, add, import, screenshots. <b>Viewer</b>: read and export only.
-          <b>No access</b>: can't see anything.</p>
+        <p class="muted small">Give each person a role. What each role may do is set under <b>Roles</b> below. <b>No access</b>: can't see anything.</p>
         <form id="person-add" class="person-add">
           <input type="email" name="email" required placeholder="new.person@capa-apac.org" aria-label="Email">
-          <select name="role" aria-label="Role"><option value="team">Team</option><option value="viewer">Viewer</option><option value="admin">Admin</option></select>
+          <select name="role" aria-label="Role" id="person-role"></select>
           <button class="btn primary" type="submit">Give access</button>
         </form>
         <p class="muted small">After you give someone access, tell them to open this page and click <b>First time here</b> to create their password.</p>
         <div class="table-wrap"><table class="grid" id="people-table"></table></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="panel-roles">
+        <div class="admin-head">
+          <h3>Roles</h3>
+          <form id="role-add" class="person-add" style="flex:0 1 420px">
+            <input name="label" required maxlength="40" placeholder="New role, e.g. Comms team" aria-label="New role name">
+            <button class="btn primary" type="submit">Create role</button>
+          </form>
+        </div>
+        <p class="muted small">Tick what each role may do. <b>Admin</b> always has everything, and only admins can manage people and roles. Changes apply the next time people load the page.</p>
+        <div class="table-wrap"><table class="grid roles-grid" id="roles-table"></table></div>
+      </div>
+
+      <div class="panel" id="panel-mailing">
         <div class="admin-head">
           <h3>Mailing list (weekly brief)</h3>
           <span class="muted small" id="ml-count"></span>
@@ -123,7 +134,7 @@
         <div class="table-wrap"><table class="grid" id="ml-table"></table></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="panel-members">
         <div class="admin-head">
           <h3>Members (PAOs)</h3>
           <div class="dialog-tools">
