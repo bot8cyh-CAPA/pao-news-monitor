@@ -295,3 +295,5 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 .roles-grid .perm-cell { text-align: center; }
 .roles-grid input[type=checkbox] { width: 18px; height: 18px; }
 .roles-grid caption { text-align: left; padding: 6px 10px; }
+
+.link.danger { color: var(--error); }

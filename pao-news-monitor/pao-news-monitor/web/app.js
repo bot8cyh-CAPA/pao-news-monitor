@@ -9,7 +9,7 @@
   const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
   const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team", page_watch: "Page watch" };
   const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
-  const ALL_PERMS = ["tag_items","add_items","edit_briefs","approve_briefs","send_briefs","manage_mailing_list","manage_members"];
+  const ALL_PERMS = ["tag_items","add_items","remove_items","edit_briefs","approve_briefs","send_briefs","manage_mailing_list","manage_members"];
   const can = (p) => state.role === "admin" || (state.perms || []).includes(p);
   const RELEVANCE_LABEL = { relevant: "Regional", country: "Country-specific", pao: "PAO-specific", not_relevant: "Not relevant" };
   const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", leadership: "Leadership change", contact: "Contact change" };
@@ -94,7 +94,7 @@
       ]);
       for (const r of [paos, health, runs]) if (r.error) throw r.error;
       const BASE = "id,pao_id,source,title,url,published_at,snippet,source_name,language,is_baseline,first_seen_at,relevance,category,notes,reviewed_by,reviewed_at";
-      const tries = [BASE + ",kind,ai_summary,ai_themes", BASE + ",kind", BASE];   // newer columns first; older databases fall back
+      const tries = [BASE + ",kind,ai_summary,ai_themes,removed_at,removed_by", BASE + ",kind,ai_summary,ai_themes", BASE + ",kind", BASE];   // newer columns first; older databases fall back
       let cols = tries.shift();
       const items = [];
       for (let from = 0; ; from += 1000) {
@@ -119,6 +119,11 @@
     async update(id, patch) {
       if (DEMO) return;
       const { error } = await db.from("items").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    async remove(id, on) {
+      if (DEMO) return;
+      const { error } = await db.rpc("remove_item", { item_id: id, remove: on });
       if (error) throw error;
     },
     async insert(row) {
@@ -181,6 +186,8 @@
   function visible(it, f, since) {
     if (!f.sources.includes(it.source)) return false;
     if (!f.kinds.includes(kindGroup(kindOf(it)))) return false;
+    if (f.status === "removed") return !!it.removed_at;   // the bin: only removed items, nothing else applies
+    if (it.removed_at) return false;
     if (it.is_baseline && !f.baseline) return false;
     // in the period = published in it, or newly found by us in it
     if (since && !(itemDate(it) >= since || it.first_seen_at >= since)) return false;
@@ -357,6 +364,9 @@
         ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type"${ro}>${["news", "events", "publications", "articles"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
         ${nonEnglish(it) ? `<button class="link small" type="button" data-translate="${esc(it.id)}" title="Show the headline in English (Google Translate)">${showingEnglish.has(it.id) ? "Show original" : "Translate"}</button>` : ""}
         ${nonEnglish(it) && canTranslatePage(it) ? `<a class="link small" href="${esc(pageTranslateUrl(it.url))}" target="_blank" rel="noopener" title="Open the whole page translated">Translate page</a>` : ""}
+        ${can("remove_items") ? (it.removed_at
+          ? `<button class="link small" type="button" data-remove="${esc(it.id)}" data-on="0" title="Put it back on the tracker">Restore</button><span class="muted small">removed by ${esc((it.removed_by || "").split("@")[0])} ${ago(it.removed_at)}</span>`
+          : `<button class="link small danger" type="button" data-remove="${esc(it.id)}" data-on="1" title="Hide this item everywhere - restore it from Show: Removed">Remove</button>`) : ""}
         ${can("tag_items") ? `<button class="link small" type="button" data-move="${esc(it.id)}" title="File this item under a different PAO">Move to another PAO</button>` : ""}
         ${reviewed}
       </div>
@@ -439,6 +449,22 @@
       }
       const add = e.target.closest("[data-add]");
       if (add) return openAdd(add.dataset.add);
+      const rm = e.target.closest("[data-remove]");
+      if (rm) {
+        const it = state.items.find((i) => i.id === rm.dataset.remove);
+        const on = rm.dataset.on === "1";
+        const before = { removed_at: it.removed_at, removed_by: it.removed_by };
+        Object.assign(it, on ? { removed_at: new Date().toISOString(), removed_by: state.user?.email || "demo" } : { removed_at: null, removed_by: null });
+        render();
+        try {
+          await api.remove(it.id, on);
+          toast(on ? "Removed - find it under Show: Removed to restore" : "Restored");
+        } catch (err) {
+          Object.assign(it, before); render();
+          toast(/remove_item|function/i.test(err.message) ? "Removing needs a quick database update (supabase/update-10.sql) - ask your admin" : "Couldn't save: " + err.message, true);
+        }
+        return;
+      }
       const mv = e.target.closest("[data-move]");
       if (mv) {
         // swap the link for a PAO picker; choosing one moves the item

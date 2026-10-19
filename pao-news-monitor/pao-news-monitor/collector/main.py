@@ -253,8 +253,16 @@ def run(only=None, sources=None, dry_run=False, workers=8):
         health_rows.append(health_row(res, health.get((res.pao_id, res.source)), new_count, started))
     store.save_health(health_rows)
 
+    # daily clean-up of old clutter (supabase/update-10.sql); never fails the run
+    purged = None
+    if not only:
+        try:
+            purged = store.purge_old()
+        except Exception as e:   # noqa: BLE001
+            log.warning("Clean-up skipped: %s", e)
+
     summary = {
-        "paos": len(paos), "sources": sources, "found": len(rows), "new": len(inserted),
+        "paos": len(paos), "sources": sources, "found": len(rows), "new": len(inserted), "cleaned_up": purged,
         "errors": sum(1 for h in health_rows if h["status"] == "error"),
         "warnings": sum(1 for h in health_rows if h["status"] == "warning"),
         "only": sorted(only) if only else None, "dry_run": dry_run,

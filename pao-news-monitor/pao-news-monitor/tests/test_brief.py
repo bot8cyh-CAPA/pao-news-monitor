@@ -210,3 +210,10 @@ def test_staff_tags_steer_the_brief(tmp_path):
     assert "staff: REGIONAL" in text and "staff: COUNTRY-SPECIFIC" in text
     assert "staff: PAO-SPECIFIC" in text
     assert "## Country updates" in brief.BRIEF_SYSTEM and "## PAO updates" in brief.BRIEF_SYSTEM
+
+
+def test_removed_items_stay_out_of_the_brief(tmp_path):
+    store = make_store(tmp_path)
+    store.data["items"]["a"]["removed_at"] = "2026-10-17T00:00:00+00:00"
+    got = {i["id"] for i in brief.gather(store, NOW - __import__("datetime").timedelta(days=7))}
+    assert "a" not in got and "b" in got

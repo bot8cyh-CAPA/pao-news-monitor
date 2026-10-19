@@ -43,14 +43,30 @@ class SupabaseStore:
     def items_since(self, since_iso):
         cols = "id,pao_id,source,title,url,published_at,snippet,language,is_baseline,first_seen_at,relevance,category,kind"
         since_iso = quote(since_iso.replace("+00:00", "Z"), safe=":-.TZ")
-        rows = []
-        for start in range(0, 20000, 1000):
-            got = self._req("GET", f"/items?select={cols}&or=(first_seen_at.gte.{since_iso},published_at.gte.{since_iso})"
-                                   "&order=first_seen_at.desc", headers={"Range": f"{start}-{start + 999}"}).json()
-            rows += got
-            if len(got) < 1000:
-                break
+        # removed items are left out (falls back if update-10.sql hasn't been run yet)
+        for extra in ("&removed_at=is.null", ""):
+            rows = []
+            try:
+                for start in range(0, 20000, 1000):
+                    got = self._req("GET", f"/items?select={cols}&or=(first_seen_at.gte.{since_iso},published_at.gte.{since_iso})"
+                                           f"{extra}&order=first_seen_at.desc", headers={"Range": f"{start}-{start + 999}"}).json()
+                    rows += got
+                    if len(got) < 1000:
+                        break
+                return rows
+            except RuntimeError:
+                if not extra:
+                    raise
         return rows
+
+    def purge_old(self):
+        """Daily clean-up (supabase/update-10.sql). Returns how many items were deleted, or None if not set up."""
+        try:
+            return self._req("POST", "/rpc/purge_old_items", json={}).json()
+        except RuntimeError as e:
+            if "purge_old_items" in str(e) or "404" in str(e):
+                return None
+            raise
 
     def save_item_ai(self, rows):
         for i in range(0, len(rows), 200):
@@ -115,6 +131,10 @@ class SupabaseStore:
             chunk = ",".join(ids[i:i + 150])
             rows = self._req("GET", f"/items?select=id&id=in.({chunk})").json()
             found |= {r["id"] for r in rows}
+            try:   # deleted by the clean-up but still remembered
+                found |= {r["id"] for r in self._req("GET", f"/seen_items?select=id&id=in.({chunk})").json()}
+            except RuntimeError:
+                pass
         return found
 
     def save_paos(self, rows):
@@ -170,8 +190,11 @@ class JsonStore:
         return True
 
     def items_since(self, since_iso):
-        return [dict(r) for r in self.data["items"].values()
-                if (r.get("first_seen_at") or "") >= since_iso or (r.get("published_at") or "") >= since_iso]
+        return [dict(r) for r in self.data["items"].values() if not r.get("removed_at")
+                and ((r.get("first_seen_at") or "") >= since_iso or (r.get("published_at") or "") >= since_iso)]
+
+    def purge_old(self):
+        return None
 
     def save_item_ai(self, rows):
         for r in rows:
