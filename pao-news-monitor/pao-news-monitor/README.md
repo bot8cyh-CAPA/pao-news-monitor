@@ -156,6 +156,10 @@ Admins make all of these on the tracker: **Members → Edit** (most are under **
 - Supabase's free plan pauses projects after a week with no activity. The daily collection counts as activity, so this won't happen while it's running.
 
 ## For developers
+
+**Working on the code with an AI assistant (BMAD).** The repository has the [BMAD Method](https://bmadcode.com/) installed (folders `_bmad/`, `.claude/skills/`, `.agents/skills/`, `.github/agents/` at the top of the repo). Open the repository folder in Claude Code, Cursor, Codex or GitHub Copilot and ask for **`bmad-help`** to see where to start. It gives the AI roles (analyst, product manager, architect, developer, UX, tech writer) and step-by-step workflows: plan a new feature (e.g. member profiles) before coding it, or document the existing system. Planning documents go in `_bmad-output/`, long-term project knowledge in `docs/`. None of this affects the running tracker.
+
+### Running it locally
 ```
 pip install -r requirements.txt pytest
 python -m pytest -q                         # offline tests
