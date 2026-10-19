@@ -9,6 +9,7 @@
   const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
   const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team", page_watch: "Page watch" };
   const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
+  const RELEVANCE_LABEL = { relevant: "Regional", country: "Country-specific", not_relevant: "Not relevant" };
   const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", leadership: "Leadership change", contact: "Contact change" };
   const GROUP_ORDER = ["Member", "Associate", "Affiliate", "Stakeholder", "Inbox"];
   const GROUP_LABEL = { Member: "Members", Associate: "Associates", Affiliate: "Affiliates", Stakeholder: "Stakeholders", Inbox: "Inbox" };
@@ -180,6 +181,8 @@
     if (f.status === "hide_not" && it.relevance === "not_relevant") return false;
     if (f.status === "unreviewed" && it.relevance) return false;
     if (f.status === "relevant" && it.relevance !== "relevant") return false;
+    if (f.status === "country" && it.relevance !== "country") return false;
+    if (f.status === "tagged" && !["relevant", "country"].includes(it.relevance)) return false;
     if (f.status === "not_relevant" && it.relevance !== "not_relevant") return false;
     if (f.q) {
       const hay = `${it.title} ${translations[it.id] || ""} ${it.ai_summary || ""} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
@@ -337,7 +340,8 @@
       ${it.source === "page_watch" ? `<button class="link small" data-content="${esc(it.id)}" data-show="Show before / now" data-hide="Hide before / now" type="button">Show before / now</button><pre class="full" hidden></pre>` : ""}
       <div class="actions">
         <div class="seg" role="group" aria-label="Relevance">
-          <button type="button" data-rel="relevant" aria-pressed="${it.relevance === "relevant"}"${ro}>Relevant</button>
+          <button type="button" data-rel="relevant" aria-pressed="${it.relevance === "relevant"}" title="Matters across Asia-Pacific / to CAPA as a whole"${ro}>Regional</button>
+          <button type="button" data-rel="country" aria-pressed="${it.relevance === "country"}" title="Only matters in that country"${ro}>Country-specific</button>
           <button type="button" data-rel="not_relevant" aria-pressed="${it.relevance === "not_relevant"}"${ro}>Not relevant</button>
         </div>
         <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category"${ro}>
@@ -560,7 +564,7 @@
     const lines = [head.map(cell).join(",")].concat(rows.map((it) => {
       const p = paoById.get(it.pao_id);
       return [p.abbr, p.name, p.jurisdiction, (itemDate(it) || "").slice(0, 10), KIND_LABEL[kindOf(it)], SOURCE_LABEL[it.source], it.source_name, it.title, translations[it.id] || "", it.url,
-        it.relevance === "relevant" ? "Relevant" : it.relevance === "not_relevant" ? "Not relevant" : "", it.category, it.notes, it.reviewed_by].map(cell).join(",");
+        RELEVANCE_LABEL[it.relevance] || "", it.category, it.notes, it.reviewed_by].map(cell).join(",");
     }));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");

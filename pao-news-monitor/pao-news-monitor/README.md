@@ -1,6 +1,6 @@
 # PAO News Monitor
 
-Every morning this tool checks the CAPA member bodies and stakeholders for news, publications, events and leadership changes, and puts what it finds on a web page grouped by organisation. Every organisation is listed, even when nothing was found. Your team decides what's relevant: mark items **Relevant** or **Not relevant**, give them a category, add notes, then export to CSV for the newsletter.
+Every morning this tool checks the CAPA member bodies and stakeholders for news, publications, events and leadership changes, and puts what it finds on a web page grouped by organisation. Every organisation is listed, even when nothing was found. Your team decides what matters: mark items **Regional** (matters across Asia-Pacific / to CAPA), **Country-specific** (only matters locally) or **Not relevant**, give them a category, add notes, then export to CSV for the newsletter. Regional items lead the weekly brief; country-specific ones go in its *Country updates* section.
 
 **Where the news comes from**
 
@@ -16,7 +16,7 @@ Every morning this tool checks the CAPA member bodies and stakeholders for news,
 LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
 
 ### Updating from an earlier version
-If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`, then `update-6.sql`.)
+If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`, then `update-6.sql`, then `update-7.sql`.)
 
 ## Sign-in (email + password)
 People sign in with their email and a password. Email is only used to confirm a new account and for "Forgot password".
@@ -41,7 +41,7 @@ Open it with **Weekly brief** at the top of the tracker. Team members can **Edit
 
 **Sending it:** admins keep a **Mailing list** on the Admin tab (add one by one, or paste many from Outlook/Excel; pause or remove anyone). On an approved brief, **Send to mailing list… → Send now** queues it; within about 10 minutes it's emailed from the monitor's Gmail as "CAPA News Monitor", with everyone in **BCC** and replies going to the admin who pressed Send. The brief then shows who sent it, when and to how many (or the error, if sending failed). Change of mind before it goes? **Cancel sending**. The staff-only "draft written by AI" banner is replaced by a short note that it was prepared with AI and reviewed by CAPA staff. Prefer to send it yourself? The same box has **send it from your own Outlook** (copies the brief and opens Outlook with the list in BCC).
 
-Setup: run `supabase/update-4.sql`, `update-5.sql` and `update-6.sql` once.
+Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql` and `update-7.sql` once.
 
 ## Roles
 | Role | Can |
@@ -125,7 +125,7 @@ In Supabase, go to **Authentication → Users → Invite user** and invite each 
 - **Translate** translates the headline (works for every source). **Translate page** opens the whole website page translated.
 - The **coloured dots** in the sidebar show health: green means fine, amber means needs a look, red means a source failed. The red/amber notes inside each PAO's box say exactly what's wrong.
 - An amber "**No new links for 60+ days**" note means that site may have changed in a way that hides new posts. Open the site and check.
-- **Export CSV** downloads exactly what's on screen. Set "Show: Relevant only" and the period first to get your newsletter shortlist.
+- **Export CSV** downloads exactly what's on screen. Set "Show: Regional + country-specific" and the period first to get your newsletter shortlist.
 
 ## Fixing things yourself (no coding)
 

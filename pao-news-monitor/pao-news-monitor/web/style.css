@@ -121,6 +121,7 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .items { list-style: none; margin: 10px 0 0; padding: 0; }
 .item { border-top: 1px solid var(--line); padding: 10px 0; }
 .item.relevant { background: linear-gradient(90deg, var(--relevant), transparent 70%); margin: 0 -16px; padding: 10px 16px; }
+.item.country { background: linear-gradient(90deg, var(--accent-soft), transparent 70%); margin: 0 -16px; padding: 10px 16px; }
 .item.not_relevant h4, .item.not_relevant .snippet { opacity: .5; }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; align-items: center; color: var(--muted); }
 .src { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 1px 7px; border-radius: 4px; background: var(--line); color: var(--ink); }
@@ -144,6 +145,7 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[data-rel=relevant][aria-pressed=true] { background: var(--ok); color: #fff; }
 .seg button[data-rel=not_relevant][aria-pressed=true] { background: var(--muted); color: #fff; }
+.seg button[data-rel=country][aria-pressed=true] { background: var(--accent); color: #fff; }
 .actions .cat { width: 190px; font-size: 13px; padding: 4px 8px; }
 .actions .kind-pick { font-size: 13px; padding: 4px 6px; }
 .snippet.diff { white-space: pre-line; color: var(--ink); -webkit-line-clamp: unset; display: block; font-size: 13px;
@@ -171,7 +173,7 @@ dialog::backdrop { background: rgb(0 0 0 / .35); }
   .filters { position: static; }
   .pao-head { flex-direction: column; }
   .actions .cat, .actions .notes { flex: 1 1 100%; width: auto; }
-  .item.relevant { margin: 0 -16px; }
+  .item.relevant, .item.country { margin: 0 -16px; }
 }
 
 /* ---- Members / People / Import ---- */
