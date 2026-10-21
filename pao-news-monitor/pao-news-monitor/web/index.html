@@ -45,7 +45,7 @@
   <div id="app" hidden>
     <header class="topbar">
       <div class="brand">
-        <span class="logo" aria-hidden="true"></span>
+        <img class="brand-logo" src="capa-logo.png" alt="CAPA - Confederation of Asian and Pacific Accountants" width="180" height="58">
         <div>
           <h1>PAO News Monitor</h1>
           <p id="last-run" class="muted small"></p>
@@ -53,18 +53,25 @@
       </div>
       <div class="top-actions">
         <span id="inbox-status" class="chip"></span>
-        <button id="refresh" class="btn ghost" type="button">Refresh</button>
-        <button id="brief-btn" class="btn ghost" type="button">Weekly brief</button>
-        <a id="ocr-link" class="btn ghost edit-only" href="ocr.html">Screenshots (OCR)</a>
-        <a id="ask-ai-link" class="btn ghost" href="ask-ai.html">Ask AI</a>
-        <button id="import-btn" class="btn ghost edit-only" type="button">Import</button>
-        <button id="admin-btn" class="btn ghost admin-only" type="button">Admin</button>
-        <button id="export" class="btn" type="button">Export CSV</button>
         <span id="user" class="muted small"></span>
         <button id="password-btn" class="btn ghost" type="button" title="Set or change your password">Password</button>
         <button id="signout" class="btn ghost" type="button">Sign out</button>
       </div>
     </header>
+    <nav class="navbar" aria-label="Sections">
+      <div class="nav-links">
+        <button id="brief-btn" class="btn ghost" type="button">Weekly brief</button>
+        <a id="ocr-link" class="btn ghost edit-only" href="ocr.html">Screenshots (OCR)</a>
+        <a id="ask-ai-link" class="btn ghost" href="ask-ai.html">Ask AI</a>
+        <button id="import-btn" class="btn ghost edit-only" type="button">Import</button>
+        <button id="admin-btn" class="btn ghost admin-only" type="button">Admin</button>
+      </div>
+      <label class="nav-search" id="search-wrap">
+        <span class="sr-only">Search</span>
+        <input id="f-search" type="search" placeholder="Search titles, notes, categories…">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+      </label>
+    </nav>
     <div id="demo-banner" class="demo-banner" hidden>
       Demo mode with sample data. Fill in <code>web/config.js</code> to connect your database.
     </div>
@@ -172,31 +179,40 @@
           <option value="removed">Removed (to restore)</option>
         </select>
       </label>
-      <fieldset class="sources">
-        <legend class="sr-only">Sources</legend>
-        <label><input type="checkbox" name="src" value="website" checked> Websites</label>
-        <label><input type="checkbox" name="src" value="google_news" checked> Google News</label>
-        <label><input type="checkbox" name="src" value="newsapi" checked> NewsAPI</label>
-        <label><input type="checkbox" name="src" value="email" checked> Email</label>
-        <label><input type="checkbox" name="src" value="manual" checked> Added by team</label>
-        <label><input type="checkbox" name="src" value="page_watch" checked> Page watch</label>
-      </fieldset>
-      <fieldset class="sources kinds">
-        <legend class="sr-only">Type</legend>
-        <label><input type="checkbox" name="kind" value="news" checked> News</label>
-        <label><input type="checkbox" name="kind" value="events" checked> Events</label>
-        <label><input type="checkbox" name="kind" value="publications" checked> Publications</label>
-        <label><input type="checkbox" name="kind" value="articles" checked> Newsletters / articles</label>
-        <label><input type="checkbox" name="kind" value="comment" checked> Opportunities to comment</label>
-        <label><input type="checkbox" name="kind" value="changes" checked> Leadership / contact changes</label>
-      </fieldset>
-      <label class="check"><input type="checkbox" id="f-baseline"> Include first-scan links</label>
-      <input id="f-search" type="search" placeholder="Search titles, notes, categories…" aria-label="Search">
-      <select id="jump" class="jump" aria-label="Jump to PAO"></select>
+      <details class="multi" id="scan-type">
+        <summary><span class="multi-label">Scan type</span> <span class="multi-value"></span></summary>
+        <div class="multi-panel" role="group" aria-label="Scan type">
+          <label><input type="checkbox" name="src" value="website" checked> Websites</label>
+          <label><input type="checkbox" name="src" value="google_news" checked> Google News</label>
+          <label><input type="checkbox" name="src" value="newsapi" checked> NewsAPI</label>
+          <label><input type="checkbox" name="src" value="email" checked> Email</label>
+          <label><input type="checkbox" name="src" value="manual" checked> Added by team</label>
+          <label><input type="checkbox" name="src" value="page_watch" checked> Page watch</label>
+          <hr>
+          <label title="Links found the first time a site was checked - may be old, never in the brief"><input type="checkbox" id="f-baseline"> Include first-scan links</label>
+          <div class="multi-tools"><button type="button" data-multi="all">All</button><button type="button" data-multi="none">None</button></div>
+        </div>
+      </details>
+      <details class="multi" id="news-type">
+        <summary><span class="multi-label">News type</span> <span class="multi-value"></span></summary>
+        <div class="multi-panel" role="group" aria-label="News type">
+          <label><input type="checkbox" name="kind" value="news" checked> News</label>
+          <label><input type="checkbox" name="kind" value="events" checked> Events</label>
+          <label><input type="checkbox" name="kind" value="publications" checked> Publications</label>
+          <label><input type="checkbox" name="kind" value="articles" checked> Newsletters / articles</label>
+          <label><input type="checkbox" name="kind" value="comment" checked> Opportunities to comment</label>
+          <label><input type="checkbox" name="kind" value="changes" checked> Leadership / contact changes</label>
+          <div class="multi-tools"><button type="button" data-multi="all">All</button><button type="button" data-multi="none">None</button></div>
+        </div>
+      </details>
+      <button id="refresh" class="btn ghost" type="button">Refresh</button>
+      <span class="filters-end">
+        <button id="toggle-all" class="btn ghost" type="button">Expand all</button>
+        <button id="export" class="btn ghost" type="button" title="Download what's on screen as a spreadsheet">Export CSV</button>
+      </span>
     </div>
 
     <div class="layout">
-      <nav id="sidebar" class="sidebar" aria-label="PAOs"></nav>
       <main id="main" class="main"></main>
     </div>
   </div>

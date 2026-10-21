@@ -2,6 +2,14 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-21 — Simpler tracker layout: CAPA logo, collapsible PAOs, filter dropdowns
+- **CAPA logo** at the top left (also on the Ask AI and Screenshots pages), with your account, Password and Sign out on the right.
+- **Second row:** Weekly brief, Screenshots (OCR), Ask AI, Import, Admin - and the search box on the right.
+- **Filters are now one tidy row:** Period, Show, **Scan type** and **News type** (the two rows of tick boxes became two dropdown menus, each with All / None), Refresh, then Expand all and Export CSV on the right. A dropdown turns green and says e.g. "3 of 6" when you've narrowed it, so a hidden filter is easy to spot. "Include first-scan links" now lives inside Scan type.
+- **Every PAO collapses into one header row** showing its health dot, how many items are left to review, and how many items it has. Click to open. Whatever you open stays open while you tag. **Expand all / Collapse all** does them all at once. While you search, every PAO with a match opens automatically.
+- The left sidebar and the "Jump to PAO" list are gone - the collapsed list now does that job.
+Website-only change: nothing to run or redeploy.
+
 ## 2026-10-21 — Relevance becomes High / Medium / Low / No relevance; "Opportunity to comment"; realistic AI suggestions
 **Why:** CAPA is regional. "Regional vs Country-specific vs PAO-specific" was sorting items by *where*, when what matters is *how much it matters to CAPA* - and big regional themes like AI were ending up in the same bucket as one country's tax rules.
 

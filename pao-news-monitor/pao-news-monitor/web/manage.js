@@ -75,6 +75,7 @@
     $("#admin-view").hidden = false;
     document.querySelector(".filters").hidden = true;
     document.querySelector(".layout").hidden = true;
+    document.querySelector("#search-wrap").hidden = true;
     window.scrollTo(0, 0);
     $("#panel-people").hidden = $("#panel-roles").hidden = !isAdmin();
     $("#panel-mailing").hidden = !can("manage_mailing_list");
@@ -87,6 +88,7 @@
     $("#admin-view").hidden = true;
     document.querySelector(".filters").hidden = false;
     document.querySelector(".layout").hidden = false;
+    document.querySelector("#search-wrap").hidden = false;
   }
   $("#admin-btn").addEventListener("click", openAdmin);
   $("#admin-back").addEventListener("click", closeAdmin);

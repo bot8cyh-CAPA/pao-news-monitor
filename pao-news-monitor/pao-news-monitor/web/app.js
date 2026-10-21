@@ -27,7 +27,7 @@
     const h = new URLSearchParams(location.hash.replace(/^#/, "")), q = new URLSearchParams(location.search);
     return { type: h.get("type") || q.get("type") || "", error: h.get("error_description") || q.get("error_description") || "" };
   })();
-  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team", perms: [] };
+  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team", perms: [], open: new Set() };
   let db = null;
 
   // ---------- data layer ----------
@@ -286,50 +286,71 @@
     const groups = GROUP_ORDER.map((g) => ({ g, paos: state.paos.filter((p) => (p.grp || "Member") === g) }))
       .filter((x) => x.paos.length);
 
-    // sidebar + mobile jump list
-    $("#sidebar").innerHTML = groups.map(({ g, paos }) => `
-      <div class="side-group"><h2>${esc(GROUP_LABEL[g] || g)}</h2><ul>${paos.map((p) => {
-        const items = byPao.get(p.id);
-        const unrev = items.filter((i) => !i.relevance).length;
-        const lvl = p.id === "_unmatched_email" ? "none" : worstLevel(healthFor(p.id));
-        return `<li><a href="#pao-${esc(p.id)}" class="${items.length ? "" : "empty"}">
-          <span class="dot ${lvl}" title="${lvl === "error" ? "A source failed" : lvl === "warn" ? "Needs a look" : ""}"></span>
-          <span class="side-name">${esc(p.abbr || p.name)}</span>
-          ${items.length ? `<span class="count${unrev ? " unrev" : ""}" title="${unrev} unreviewed of ${items.length}">${unrev || items.length}</span>` : ""}
-        </a></li>`;
-      }).join("")}</ul></div>`).join("");
-    $("#jump").innerHTML = `<option value="">Jump to PAO…</option>` + groups.map(({ g, paos }) =>
-      `<optgroup label="${esc(GROUP_LABEL[g] || g)}">${paos.map((p) => `<option value="${esc(p.id)}">${esc(p.abbr || p.name)} (${byPao.get(p.id).length})</option>`).join("")}</optgroup>`).join("");
-
     // main sections - every PAO, even with nothing found
     const total = [...byPao.values()].reduce((n, l) => n + l.length, 0);
     const withNews = [...byPao.values()].filter((l) => l.length).length;
     const cats = [...new Set((CFG.CATEGORIES || []).concat(state.items.map((i) => i.category).filter(Boolean)))];
     $("#main").innerHTML = `<datalist id="cats">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>` +
       `<p class="summary">${total} item${total === 1 ? "" : "s"} across ${withNews} of ${state.paos.length} organisations</p>` +
-      groups.map(({ g, paos }) => `<h2 class="group-title">${esc(GROUP_LABEL[g] || g)}</h2>` + paos.map((p) => section(p, byPao.get(p.id))).join("")).join("");
+      groups.map(({ g, paos }) => `<h2 class="group-title">${esc(GROUP_LABEL[g] || g)}</h2>` + paos.map((p) => section(p, byPao.get(p.id), !!f.q)).join("")).join("");
+    updateMultiLabels();
+    updateToggleAll();
   }
 
-  function section(p, items) {
+  // Each PAO is a collapsible row: the header shows health, what's left to review and how many items;
+  // click it to see the items. Which ones are open is remembered across re-renders (tagging, filters).
+  // While searching, every PAO with a match opens so results aren't hidden.
+  function section(p, items, searching) {
     const isInbox = p.id === "_unmatched_email";
     const hs = isInbox ? [] : healthFor(p.id);
+    const lvl = isInbox ? "none" : worstLevel(hs);
+    const unrev = items.filter((i) => !i.relevance).length;
+    const open = state.open.has(p.id) || (searching && items.length > 0);
     const searchName = encodeURIComponent(p.name);
-    return `<section class="pao" id="pao-${esc(p.id)}">
-      <header class="pao-head">
-        <div>
+    return `<details class="pao" id="pao-${esc(p.id)}" data-pao="${esc(p.id)}"${open ? " open" : ""}>
+      <summary class="pao-head">
+        <span class="dot ${lvl}" title="${lvl === "error" ? "A source failed - open for details" : lvl === "warn" ? "A source needs a look - open for details" : lvl === "ok" ? "All sources fine" : ""}"></span>
+        <span class="pao-title">
           <h3>${p.abbr && p.abbr !== p.name ? `${esc(p.abbr)}<span class="pao-name">${esc(p.name)}</span>` : esc(p.name)}</h3>
-          <p class="muted small">${esc(p.jurisdiction || "")}${p.website ? ` · <a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(p.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</a>` : ""}${p.notes ? ` · ${esc(p.notes)}` : ""}</p>
+          ${p.jurisdiction ? `<span class="muted small">${esc(p.jurisdiction)}</span>` : ""}
+        </span>
+        <span class="pao-counts">${items.length
+          ? `${unrev ? `<span class="count unrev" title="Not yet tagged">${unrev} to review</span>` : ""}<span class="count">${items.length} item${items.length === 1 ? "" : "s"}</span>`
+          : `<span class="muted small">Nothing found</span>`}</span>
+        <svg class="chev" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="pao-body">
+        <div class="pao-meta">
+          <p class="muted small">${p.website ? `<a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(p.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</a>` : ""}${p.notes ? `${p.website ? " · " : ""}${esc(p.notes)}` : ""}</p>
+          <div class="pao-tools">
+            ${isInbox ? "" : `<a class="btn ghost small" target="_blank" rel="noopener" title="Check LinkedIn by hand" href="https://www.linkedin.com/search/results/content/?keywords=${searchName}&sortBy=%22date_posted%22">LinkedIn</a>`}
+            ${p.facebook ? `<a class="btn ghost small" target="_blank" rel="noopener" title="Check their Facebook page by hand" href="${esc(p.facebook)}">Facebook</a>` : ""}
+            ${can("add_items") ? `<button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>` : ""}
+          </div>
         </div>
-        <div class="pao-tools">
-          ${isInbox ? "" : `<a class="btn ghost small" target="_blank" rel="noopener" title="Check LinkedIn by hand" href="https://www.linkedin.com/search/results/content/?keywords=${searchName}&sortBy=%22date_posted%22">LinkedIn</a>`}
-          ${p.facebook ? `<a class="btn ghost small" target="_blank" rel="noopener" title="Check their Facebook page by hand" href="${esc(p.facebook)}">Facebook</a>` : ""}
-          ${can("add_items") ? `<button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>` : ""}
-        </div>
-      </header>
-      ${hs.length ? `<div class="health">${hs.map((h) => `<span class="chip ${h.level}" title="${esc(h.text)}">${esc(SOURCE_LABEL[h.src])}${h.when ? ` · ${ago(h.when)}` : ""}</span>`).join("")}
-        ${hs.filter((h) => h.level === "error" || h.level === "warn").map((h) => `<p class="health-note ${h.level}">${esc(SOURCE_LABEL[h.src])}: ${esc(h.text)}</p>`).join("")}</div>` : ""}
-      ${items.length ? `<ol class="items">${items.map(card).join("")}</ol>` : `<p class="empty-note">Nothing found in this period.</p>`}
-    </section>`;
+        ${hs.length ? `<div class="health">${hs.map((h) => `<span class="chip ${h.level}" title="${esc(h.text)}">${esc(SOURCE_LABEL[h.src])}${h.when ? ` · ${ago(h.when)}` : ""}</span>`).join("")}
+          ${hs.filter((h) => h.level === "error" || h.level === "warn").map((h) => `<p class="health-note ${h.level}">${esc(SOURCE_LABEL[h.src])}: ${esc(h.text)}</p>`).join("")}</div>` : ""}
+        ${items.length ? `<ol class="items">${items.map(card).join("")}</ol>` : `<p class="empty-note">Nothing found in this period.</p>`}
+      </div>
+    </details>`;
+  }
+
+  // ---------- Scan type / News type dropdowns ----------
+  // Small checkbox menus. The summary shows "All", "None", the single choice, or "3 of 6".
+  function updateMultiLabels() {
+    for (const d of $$(".multi")) {
+      const boxes = $$(".multi-panel input[name]", d);
+      const on = boxes.filter((b) => b.checked);
+      const text = on.length === boxes.length ? "All" : on.length === 0 ? "None"
+        : on.length === 1 ? on[0].parentElement.textContent.trim() : `${on.length} of ${boxes.length}`;
+      $(".multi-value", d).textContent = text;
+      d.classList.toggle("narrowed", on.length !== boxes.length);
+    }
+  }
+
+  function updateToggleAll() {
+    const all = $$("#main details.pao");
+    $("#toggle-all").textContent = all.length && all.every((d) => d.open) ? "Collapse all" : "Expand all";
   }
 
   function card(it) {
@@ -434,7 +455,40 @@
     for (const el of ["#f-status", "#f-baseline"]) $(el).addEventListener("change", () => { saveFilters(); render(); });
     $$("input[name=src], input[name=kind]").forEach((i) => i.addEventListener("change", () => { saveFilters(); render(); }));
     let typing; $("#f-search").addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(render, 200); });
-    $("#jump").addEventListener("change", (e) => { if (e.target.value) location.hash = "pao-" + e.target.value; e.target.value = ""; });
+    // remember which PAOs are open ('toggle' doesn't bubble, so listen while it travels down)
+    $("#main").addEventListener("toggle", (e) => {
+      const d = e.target;
+      if (!d.matches?.("details.pao")) return;
+      d.open ? state.open.add(d.dataset.pao) : state.open.delete(d.dataset.pao);
+      updateToggleAll();
+    }, true);
+    $("#toggle-all").addEventListener("click", () => {
+      const all = $$("#main details.pao"), open = !all.every((d) => d.open);
+      all.forEach((d) => { d.open = open; open ? state.open.add(d.dataset.pao) : state.open.delete(d.dataset.pao); });
+      updateToggleAll();
+    });
+    // a link to #pao-xyz (e.g. from the brief) opens that PAO
+    const openFromHash = () => {
+      const m = location.hash.match(/^#pao-(.+)$/);
+      if (!m) return;
+      state.open.add(decodeURIComponent(m[1]));
+      const d = document.getElementById("pao-" + decodeURIComponent(m[1]));
+      if (d) { d.open = true; d.scrollIntoView({ block: "start" }); }
+    };
+    window.addEventListener("hashchange", openFromHash);
+    state.openFromHash = openFromHash;
+    // dropdown menus: All / None buttons, close when clicking elsewhere or pressing Esc, one open at a time
+    $$(".multi").forEach((d) => {
+      d.addEventListener("toggle", () => { if (d.open) $$(".multi").forEach((o) => { if (o !== d) o.open = false; }); });
+      d.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-multi]");
+        if (!b) return;
+        $$(".multi-panel input[name]", d).forEach((i) => (i.checked = b.dataset.multi === "all"));
+        saveFilters(); render();
+      });
+    });
+    document.addEventListener("click", (e) => { if (!e.target.closest(".multi")) $$(".multi[open]").forEach((d) => (d.open = false)); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") $$(".multi[open]").forEach((d) => (d.open = false)); });
     $("#refresh").addEventListener("click", reload);
     $("#export").addEventListener("click", exportCsv);
     $("#signout").addEventListener("click", async () => { await api.signOut(); if (DEMO) toast("Demo mode - nothing to sign out of"); });
@@ -645,9 +699,10 @@
     await api.loadRole();
     if (LINK.type === "invite" || LINK.type === "recovery") { openPassword(LINK.type); LINK.type = ""; }
     await reload();
+    state.openFromHash?.();
   }
 
-  // keep the sidebar and section jumps clear of the sticky filter bar
+  // keep section jumps clear of the sticky filter bar
   new ResizeObserver(([e]) => {
     const h = Math.ceil(e.target.getBoundingClientRect().height);
     document.documentElement.style.setProperty("--filters-h", h + "px");

@@ -56,7 +56,7 @@
 
   // ---------- view ----------
   function open() {
-    for (const sel of [".filters", ".layout", "#admin-view"]) document.querySelector(sel).hidden = true;
+    for (const sel of [".filters", ".layout", "#admin-view", "#search-wrap"]) document.querySelector(sel).hidden = true;
     $("#brief-view").hidden = false;
     window.scrollTo(0, 0);
     $("#brief-list").innerHTML = "<li class='muted'>Loading…</li>";
@@ -71,6 +71,7 @@
     $("#brief-view").hidden = true;
     document.querySelector(".filters").hidden = false;
     document.querySelector(".layout").hidden = false;
+    document.querySelector("#search-wrap").hidden = false;
   }
   function draw() {
     $("#brief-list").innerHTML = briefs.length ? briefs.map((b) => `<li><button type="button" data-brief="${b.id}" class="${current && b.id === current.id ? "active" : ""}">
