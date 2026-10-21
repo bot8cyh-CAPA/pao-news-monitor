@@ -24,8 +24,9 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 // Groq first (cheap, generous free tier) - see ask-ai-architecture.md for why, unlike the
 // brief/tagging chain in collector/ai.py which tries Gemini first.
 function chain(env: Record<string, string | undefined>) {
-  const steps: { url: string; key: string; model: string; headers?: Record<string, string> }[] = [];
-  if (env.GROQ_API_KEY) steps.push({ url: GROQ_URL, key: env.GROQ_API_KEY, model: "openai/gpt-oss-120b" });
+  const steps: { url: string; key: string; model: string; extra?: Record<string, unknown> }[] = [];
+  // gpt-oss "thinks" before answering; keep that short so it's fast and doesn't eat the answer's token budget
+  if (env.GROQ_API_KEY) steps.push({ url: GROQ_URL, key: env.GROQ_API_KEY, model: "openai/gpt-oss-120b", extra: { reasoning_effort: "low" } });
   if (env.GEMINI_API_KEY) steps.push({ url: GEMINI_URL, key: env.GEMINI_API_KEY, model: "gemini-3.8-flash" });
   if (env.CF_ACCOUNT_ID && env.CF_AI_TOKEN)
     steps.push({ url: CF_URL(env.CF_ACCOUNT_ID), key: env.CF_AI_TOKEN, model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" });
@@ -33,25 +34,44 @@ function chain(env: Record<string, string | undefined>) {
   return steps;
 }
 
+// Time limits: a stalled provider must never hang the page. Each provider gets PER_PROVIDER_MS,
+// and we stop starting new attempts once TOTAL_MS has passed (Supabase kills functions at ~150s).
+const PER_PROVIDER_MS = 30_000;
+const TOTAL_MS = 110_000;
+
 async function askModel(env: Record<string, string | undefined>, messages: unknown[]): Promise<{ text: string; model: string }> {
   let lastError = "no AI provider has a key set";
+  const started = Date.now();
+  const tried: string[] = [];
   for (const step of chain(env)) {
+    const left = TOTAL_MS - (Date.now() - started);
+    if (left < 5_000) { lastError = `ran out of time (tried: ${tried.join(", ")})`; break; }
+    tried.push(step.model);
     try {
       const r = await fetch(step.url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${step.key}` },
-        body: JSON.stringify({ model: step.model, messages, temperature: 0.3, max_tokens: 1800 }),
+        body: JSON.stringify({ model: step.model, messages, temperature: 0.3, max_tokens: 1800, ...(step.extra || {}) }),
+        signal: AbortSignal.timeout(Math.min(PER_PROVIDER_MS, left)),
       });
-      if (!r.ok) { lastError = `${step.model} failed ${r.status}`; continue; }
+      if (!r.ok) {
+        const detail = (await r.text().catch(() => "")).slice(0, 200);
+        console.error(`ask-ai: ${step.model} failed ${r.status}: ${detail}`);
+        lastError = `${step.model} failed ${r.status}`;
+        continue;
+      }
       const data = await r.json();
       const text = data?.choices?.[0]?.message?.content;
       if (typeof text === "string" && text.trim()) return { text, model: step.model };
       lastError = `${step.model} returned no usable text`;
+      console.error(`ask-ai: ${lastError}`);
     } catch (e) {
-      lastError = `${step.model} error: ${(e as Error).message}`;
+      const timedOut = (e as Error).name === "TimeoutError";
+      lastError = timedOut ? `${step.model} took too long` : `${step.model} error: ${(e as Error).message}`;
+      console.error(`ask-ai: ${lastError}`);
     }
   }
-  throw new Error(lastError);
+  throw new Error(`All AI providers failed or were too slow - try again in a minute. (Last: ${lastError})`);
 }
 
 // The tracker site lives on a different domain from Supabase, so the browser first asks

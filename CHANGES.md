@@ -2,6 +2,9 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-21 — Fix: Ask AI stuck on "Asking…" forever
+If one AI provider stalled, Ask AI waited on it indefinitely - one test sat on "Asking…" for 5+ minutes. Now each provider gets 30 seconds before the next one is tried, the whole attempt stops well within Supabase's time limit, and the page itself gives up after 2 minutes with a clear "try again" message. The main Groq model is also told to keep its behind-the-scenes "thinking" short, which makes it faster. Failures are now written to the function's log (Supabase → Edge Functions → ask-ai → Logs) so problems can be diagnosed. Needs a redeploy: `supabase functions deploy ask-ai --project-ref uipumuednycqjrkoacgm`.
+
 ## 2026-10-21 — Fix: Ask AI answers cut off and showing ### / ** symbols
 Long answers (several collaboration recommendations) were being squashed into a fixed-height chat box, so they looked like they stopped mid-sentence. The conversation now grows with the page, and each new answer scrolls into view from its first line. Answers also now display properly formatted - headings, bullet points, numbered lists, dividers, bold - instead of the raw formatting symbols the AI writes. Website-only change: no redeploy or database step.
 

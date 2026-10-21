@@ -57,9 +57,12 @@
       render();
       $("#question").value = "";
       try {
-        const { data, error } = await db.functions.invoke("ask-ai", {
-          body: { pao_id: $("#pao").value, thread_id: threadId, question: q },
-        });
+        // never spin forever: give up after 2 minutes with a clear message
+        const timeout = new Promise((_, fail) => setTimeout(() => fail(new Error("No answer after 2 minutes - the AI services may be busy. Please try again.")), 120_000));
+        const { data, error } = await Promise.race([
+          db.functions.invoke("ask-ai", { body: { pao_id: $("#pao").value, thread_id: threadId, question: q } }),
+          timeout,
+        ]);
         if (error) {
           // The function sends back a readable reason (e.g. "AI providers all failed"); show that, not the generic wrapper.
           let detail = "";
