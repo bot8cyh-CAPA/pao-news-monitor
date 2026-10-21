@@ -31,9 +31,9 @@ People sign in with their email and a password. Email is only used to confirm a 
 **Forgot password / used to sign in with email links:** the **Forgot password** tab emails a link to set one. Signed-in people can change it with the **Password** button.
 
 ## Weekly brief (AI)
-Every **Monday at about 7:45am** (Malaysia time) a separate job reads the past week's items (everything except **Not relevant** and hidden first-scan links), and:
+Every **Monday at about 7:45am** (Malaysia time) a separate job reads the past week's items (everything except items tagged **Low** or **No relevance**, and hidden first-scan links), and:
 1. tags each item with themes (AI & digitalisation, Talent, Sustainability, Ethics & standards) and a one-line English summary. These also appear on the news cards.
-2. writes a draft brief: **Headlines**, each **theme** with *what happened*, *regional implications* and *suggested CAPA actions*, **Leadership changes** (for congratulation letters), **Upcoming events and deadlines**, **No news found this week**, and a numbered **Sources** list. Every fact links to its source item.
+2. writes a draft brief: **Open for comment** (consultations with deadlines), **Key developments** (staff *High* items, by theme, with *what happened*, *regional implications* and *suggested CAPA actions* - kept realistic by the rules in `collector/capa_context.py`), **Other updates** (staff *Medium* items), **Leadership changes** (for congratulation letters), **Upcoming events and deadlines**, **No news found this week**, and a numbered **Sources** list. Every fact links to its source item.
 
 Open it with **Weekly brief** at the top of the tracker. Team members can **Edit** it; an admin **Approves** it. **Copy for email** copies it with formatting for an Outlook email; **Download Word** gives a .doc file. Nothing is sent automatically. To make one now: **Actions → Weekly brief → Run workflow**.
 
@@ -41,7 +41,7 @@ Open it with **Weekly brief** at the top of the tracker. Team members can **Edit
 
 **Sending it:** admins keep a **Mailing list** on the Admin tab (add one by one, or paste many from Outlook/Excel; pause or remove anyone). On an approved brief, **Send to mailing list… → Send now** queues it; within about 10 minutes it's emailed from the monitor's Gmail as "CAPA News Monitor", with everyone in **BCC** and replies going to the admin who pressed Send. The brief then shows who sent it, when and to how many (or the error, if sending failed). Change of mind before it goes? **Cancel sending**. The staff-only "draft written by AI" banner is replaced by a short note that it was prepared with AI and reviewed by CAPA staff. Prefer to send it yourself? The same box has **send it from your own Outlook** (copies the brief and opens Outlook with the list in BCC).
 
-Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql`, `update-7.sql`, `update-8.sql`, `update-9.sql`, `update-10.sql` and `update-11.sql` once.
+Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql`, `update-7.sql`, `update-8.sql`, `update-9.sql`, `update-10.sql`, `update-11.sql` and `update-12.sql` once.
 
 ## Roles and permissions
 Admins manage these on the **Admin** tab.
@@ -171,8 +171,8 @@ With `web/config.js` left empty, the page runs in demo mode with sample data (`c
 
 Every daily run also tidies the database so it doesn't keep growing:
 - removed items are deleted 90 days after removal;
-- untagged and *Not relevant* items are deleted 12 months after they were found;
-- anything tagged Regional, Country-specific or PAO-specific, and anything a brief cited, is kept forever.
+- untagged and *No relevance* items are deleted 12 months after they were found;
+- anything tagged High, Medium or Low, and anything a brief cited, is kept forever.
 
 Deleted items leave only their fingerprint behind (table `seen_items`, about 30 bytes each), so they're never re-added. Leadership/contact page watch only ever keeps the latest copy of each page. Set up with `supabase/update-10.sql`.
 

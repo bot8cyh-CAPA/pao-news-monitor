@@ -84,7 +84,7 @@ def make_store(tmp_path):
     s.data["items"] = {
         "a": item("a", "icai", "ICAI launches AI audit toolkit for members"),
         "b": item("b", "iesba", "IESBA consultation on technology-related ethics, comments due 30 Nov"),
-        "c": item("c", "icai", "Exam dates announced", relevance="not_relevant"),
+        "c": item("c", "icai", "Exam dates announced", relevance="none"),
         "d": item("d", "icai", "Old link", is_baseline=True),
         "e": item("e", "icai", "Leadership changed on website: + CA X | President", source="page_watch", kind="leadership"),
         "old": item("old", "icai", "Last month", first_seen_at="2026-09-01T00:00:00+00:00", published_at="2026-09-01T00:00:00+00:00"),
@@ -201,15 +201,24 @@ def test_only_items_published_in_the_week(tmp_path):
 
 def test_staff_tags_steer_the_brief(tmp_path):
     store = make_store(tmp_path)
-    store.data["items"]["a"]["relevance"] = "relevant"
-    store.data["items"]["b"]["relevance"] = "country"
-    store.data["items"]["e"]["relevance"] = "pao"
+    store.data["items"]["a"]["relevance"] = "high"
+    store.data["items"]["b"]["relevance"] = "medium"
+    store.data["items"]["e"]["kind"] = "comment"
     lines, _ = brief.numbered(brief.pick_for_brief(brief.gather(store, NOW - __import__("datetime").timedelta(days=7))),
                               store.data["paos"])
     text = "\n".join(lines)
-    assert "staff: REGIONAL" in text and "staff: COUNTRY-SPECIFIC" in text
-    assert "staff: PAO-SPECIFIC" in text
-    assert "## Country updates" in brief.BRIEF_SYSTEM and "## PAO updates" in brief.BRIEF_SYSTEM
+    assert "staff: HIGH" in text and "staff: MEDIUM" in text and "put under Open for comment" in text
+    for section in ("## Open for comment", "## Key developments", "## Other updates", "## Leadership changes"):
+        assert section in brief.BRIEF_SYSTEM
+    assert "Country updates" not in brief.BRIEF_SYSTEM and "No summits" in brief.BRIEF_SYSTEM
+
+
+def test_low_and_no_relevance_stay_out_of_the_brief(tmp_path):
+    store = make_store(tmp_path)
+    store.data["items"]["a"]["relevance"] = "low"
+    store.data["items"]["b"]["relevance"] = "none"
+    got = {i["id"] for i in brief.gather(store, NOW - __import__("datetime").timedelta(days=7))}
+    assert "a" not in got and "b" not in got
 
 
 def test_removed_items_stay_out_of_the_brief(tmp_path):

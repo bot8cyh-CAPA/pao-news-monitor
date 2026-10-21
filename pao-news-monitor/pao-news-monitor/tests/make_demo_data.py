@@ -15,16 +15,16 @@ paos = [p for p in paos if p["active"]]
 
 samples = [
     ("picpa", "website", "SAMPLE - PICPA welcomes its new National President", 3, "", "picpa.com.ph", "en", None, None),
-    ("picpa", "google_news", "SAMPLE - Accountancy body names new president at annual convention", 40, "Search: \"picpa\"", "Example Daily", "", "relevant", "Leadership / President"),
-    ("picpa", "manual", "SAMPLE - Induction video posted on LinkedIn", 75, "", "you@example.org", "", "relevant", "Leadership / President"),
+    ("picpa", "google_news", "SAMPLE - Accountancy body names new president at annual convention", 40, "Search: \"picpa\"", "Example Daily", "", "high", "Leadership / President"),
+    ("picpa", "manual", "SAMPLE - Induction video posted on LinkedIn", 75, "", "you@example.org", "", "high", "Leadership / President"),
     ("icai", "google_news", "SAMPLE - Institute announces revised exam schedule", 2, "Search: \"institute of chartered accountants of india\"", "Example Times", "", None, None),
-    ("icai", "website", "SAMPLE - Announcement regarding CPD hours for members", 5, "", "icai.org", "en", "not_relevant", None),
+    ("icai", "website", "SAMPLE - Announcement regarding CPD hours for members", 5, "", "icai.org", "en", "none", None),
     ("icai", "newsapi", "SAMPLE - Chartered accountants' body signs MoU with regional federation", 9, "Accountancy bodies in the region signed an agreement to cooperate on education and standards.", "Example Wire", "", None, None),
     ("jicpa", "google_news", "SAMPLE - 日本公認会計士協会、新会長を選出", 6, "Search: 日本公認会計士協会", "Example Shimbun", "ja", None, None),
     ("kicpa", "website", "SAMPLE - 한국공인회계사회 공지사항: 회원 교육 일정 안내", 12, "", "kicpa.or.kr", "ko", None, None),
     ("vacpa", "google_news", "SAMPLE - VACPA tổ chức hội nghị thường niên 2026", 15, "Search: \"vacpa\"", "Example Báo", "vi", None, None),
     ("hkicpa", "email", "SAMPLE - Press release: Institute statement on new auditing standard", 1, "The Institute welcomes the new standard and will issue member guidance next month...", "Communications <press@hkicpa.org.hk>", "en", None, None),
-    ("ca-sri-lanka", "website", "SAMPLE - Council election results announced", 20, "", "casrilanka.com", "en", "relevant", "Council & elections"),
+    ("ca-sri-lanka", "website", "SAMPLE - Council election results announced", 20, "", "casrilanka.com", "en", "high", "Council & elections"),
     ("ifac", "website", "SAMPLE - IFAC congratulates new leadership at member bodies", 8, "", "ifac.org", "en", None, None),
     ("_unmatched_email", "email", "SAMPLE - Newsletter: Regional accountancy update", 4, "This month's regional roundup...", "Newsletter <news@example.org>", "", None, None),
     ("cncc", "google_news", "SAMPLE - Évaluation d'entreprise : vers un jugement professionnel augmenté par l'IA", 0.4, "Search: \"compagnie nationale des commissaires aux comptes\"", "mesinfos", "", None, None),
@@ -47,7 +47,7 @@ for i, (pid, src, title, age, snippet, srcname, lang, rel, cat, *kind) in enumer
         snippet=snippet, content=(snippet + "\n\n(full email text would appear here)") if src == "email"
         else ("Before:\n(watched lines last time)\n\nNow:\n(watched lines today)" if src == "page_watch" else ""),
         source_name=srcname, language=lang, is_baseline=baseline, first_seen_at=d(min(age, 3)),
-        relevance=rel, category=cat, notes="Confirm date with secretariat" if rel == "relevant" and i == 1 else None,
+        relevance=rel, category=cat, notes="Confirm date with secretariat" if rel == "high" and i == 1 else None,
         reviewed_by="colleague@example.org" if rel else None, reviewed_at=d(1) if rel else None))
 
 health = []
@@ -89,10 +89,10 @@ class _SampleAI(ai_mod.Chain):
             n = sum(1 for line in user.splitlines() if line[:1].isdigit())
             return json.dumps([{"n": i, "summary": "SAMPLE summary", "themes": ["ai_digital"] if i % 3 == 0 else ["other"],
                                 "importance": 2} for i in range(1, n + 1)]), "sample:demo"
-        return ("## Headlines\n- SAMPLE - ICAI's vice-president changed on its website [1]\n"
-                "- SAMPLE - The Chartered Accountant Journal October issue is out [2]\n\n## By theme\n### AI & digitalisation\n"
+        return ("## Open for comment\nNone this week.\n\n## Key developments\n### AI & digitalisation\n"
                 "**What happened**\n- SAMPLE - JICPA elected a new president [5]\n**Regional implications**\n- SAMPLE interpretation.\n"
-                "**Suggested CAPA actions**\n- SAMPLE - send congratulations to JICPA's new president.\n\n### Talent attraction & retention\nNo items this week.\n\n"
+                "**Suggested CAPA actions**\n- SAMPLE - offer a webinar slot to share JICPA's priorities with the network.\n\n"
+                "## Other updates\n- SAMPLE - The Chartered Accountant Journal October issue is out [2]\n\n"
                 "## Leadership changes\n- SAMPLE - ICAI: new Vice-President [1]\n\n## Upcoming events and deadlines\n- SAMPLE - ICAI National Conference [3]"), "sample:demo"
 
 

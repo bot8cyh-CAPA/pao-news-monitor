@@ -2,6 +2,19 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-21 — Relevance becomes High / Medium / Low / No relevance; "Opportunity to comment"; realistic AI suggestions
+**Why:** CAPA is regional. "Regional vs Country-specific vs PAO-specific" was sorting items by *where*, when what matters is *how much it matters to CAPA* - and big regional themes like AI were ending up in the same bucket as one country's tax rules.
+
+**What changed:**
+- **The tag buttons are now High / Med / Low / No relevance.** Existing tags were converted automatically: Regional → High, PAO-specific → Medium, Country-specific → Low, Not relevant → No relevance. Re-tag anything that landed wrong.
+- **Weekly brief:** new **Open for comment** section at the top, then **Key developments** (High items, by theme), then **Other updates** (Medium). Low and No relevance items stay in the tracker only. Untagged items are still considered, but the AI only promotes one to Key developments if it clearly matters region-wide.
+- **New item type "Opportunity to comment"** (in the type dropdown, the type filter, the screenshot page and spreadsheet import) for consultations and exposure drafts.
+- **Realism rules for AI suggestions**, used by both Ask AI and the brief's "Suggested CAPA actions": think regionally (no proposals built on one country's domestic issue); webinars, online workshops and online collaboration are fine; in-person events are a stretch and never more than a day; no summits; roundtables only as a topic for CAPA members' meetings, never for a sub-region; meetings with a PAO's leaders are fine but the AI lists *what to discuss* and how CAPA's network could tackle it together, not dates and logistics. Edit these in `collector/capa_context.py` (`CAPA_ACTION_RULES`).
+- **Ask AI reads High items first, then Medium, then untagged** (skipping Low / No relevance) - 30 articles, slightly fewer than before, to keep room for the new rules within Groq's free limit.
+- Filters: "High + Medium (brief material)", "High only", "Medium only", "Low only", "No relevance only". Anyone who had an old filter saved (e.g. "Country-specific only") is put back on the default.
+
+**Needs:** `supabase/update-12.sql` (converts the tags), then redeploy Ask AI (`supabase functions deploy ask-ai --project-ref uipumuednycqjrkoacgm`). Run the SQL first - until then, tagging buttons on the site will be refused by the database.
+
 ## 2026-10-21 — Ask AI: clickable citations, sources list, tables; smarter article picking
 Citation numbers in answers ([5], [2][5], [19, 33]) are now links to the actual article, and each answer has a **Sources** list (click to expand) showing every cited article's title, outlet and date - so any claim can be checked in one click. Tables in answers now display as proper tables instead of rows of | symbols. Also changed which 35 articles Ask AI reads: it now skips anything staff tagged **Not relevant** (as well as Removed items), and picks the newest by **publish date** rather than by when the monitor happened to find them, so an old story that surfaced late no longer crowds out real recent news. Needs a redeploy: `supabase functions deploy ask-ai --project-ref uipumuednycqjrkoacgm`.
 

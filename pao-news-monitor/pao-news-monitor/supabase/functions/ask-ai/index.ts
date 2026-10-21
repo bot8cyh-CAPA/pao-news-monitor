@@ -19,9 +19,9 @@ const MAX_TURNS = 15;        // user+assistant pairs per thread before the UI mu
 // outright, pushing every question onto Gemini's much smaller daily quota. So: fewer items, short
 // excerpts, no URLs (citations are matched back to items by number, so the model doesn't need links).
 // Groq free tier (2026): gpt-oss-120b 8,000 tokens/min, llama-3.3-70b 12,000 tokens/min - prompt AND
-// answer combined. Guidelines (~2.5k tokens) + 35 short items (~3k) + answer must fit under those.
-const MAX_ITEMS = 35;        // most recent items fed in
-const SNIPPET_CHARS = 150;   // excerpt length per item
+// answer combined. Guidelines incl. CAPA realism rules (~3k tokens) + 30 short items (~2.8k) + answer must fit under those.
+const MAX_ITEMS = 30;        // most recent items fed in
+const SNIPPET_CHARS = 140;   // excerpt length per item
 // Answers need room: "thinking" models spend part of this budget reasoning before they write.
 // Per-provider overrides below keep Groq requests inside its per-minute token cap.
 const MAX_OUTPUT_TOKENS = 4000;
@@ -138,20 +138,24 @@ async function handle(req: Request): Promise<Response> {
   const { data: pao } = await svc.from("paos").select("id,name,abbr,jurisdiction,grp,website").eq("id", pao_id).single();
   if (!pao) return json({ error: "Unknown PAO" }, 404);
 
-  // Which items the AI sees: this PAO's items, minus anything Removed or tagged "Not relevant" by
-  // staff, newest first by PUBLISH date (falling back to the date the monitor found it, for items
-  // with no publish date) - so an old story that surfaced late doesn't crowd out real recent news.
-  // We pull a wider pool from the database (cheap) and keep the newest MAX_ITEMS (what costs AI tokens).
+  // Which items the AI sees: this PAO's items, minus anything Removed or tagged Low / No relevance
+  // by staff. Staff High items come first, then Medium, then untagged; within each, newest first by
+  // PUBLISH date (falling back to the date the monitor found it). We pull a wider pool from the
+  // database (cheap), keep the best MAX_ITEMS (what costs AI tokens), then list those newest first.
   const { data: pool } = await svc
     .from("items")
     .select("id,title,snippet,url,published_at,first_seen_at,source,kind,relevance,category")
     .eq("pao_id", pao_id)
     .is("removed_at", null)
-    .or("relevance.is.null,relevance.neq.not_relevant")
+    .or("relevance.is.null,relevance.in.(high,medium)")
     .order("first_seen_at", { ascending: false })
     .limit(300);
   const when = (it: { published_at?: string | null; first_seen_at?: string | null }) => it.published_at || it.first_seen_at || "";
-  const items = (pool ?? []).sort((a, b) => when(b).localeCompare(when(a))).slice(0, MAX_ITEMS);
+  const rank = (it: { relevance?: string | null }) => (it.relevance === "high" ? 0 : it.relevance === "medium" ? 1 : 2);
+  const items = (pool ?? [])
+    .sort((a, b) => rank(a) - rank(b) || when(b).localeCompare(when(a)))
+    .slice(0, MAX_ITEMS)
+    .sort((a, b) => when(b).localeCompare(when(a)));
 
   let thread: { id: number; messages: { role: string; content: string; cited_item_ids?: string[]; at: string }[] } | null = null;
   if (body.thread_id) {
@@ -163,7 +167,7 @@ async function handle(req: Request): Promise<Response> {
 
   const numbered = items.map((it, i) => {
     const date = when(it).slice(0, 10);
-    return `[${i + 1}] ${date} | ${it.source}${it.kind && it.kind !== "news" ? ` (${it.kind})` : ""}${it.relevance ? ` | staff-tagged: ${it.relevance}` : ""} | ${it.title}${it.snippet ? `\n    ${short(it.snippet)}` : ""}`;
+    return `[${i + 1}] ${date} | ${it.source}${it.kind && it.kind !== "news" ? ` (${it.kind === "comment" ? "opportunity to comment" : it.kind})` : ""}${it.relevance ? ` | staff-tagged: ${it.relevance}` : ""} | ${it.title}${it.snippet ? `\n    ${short(it.snippet)}` : ""}`;
   });
 
   const system = `You are answering questions for CAPA staff about one specific organisation: \

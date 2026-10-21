@@ -11,8 +11,8 @@
   const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
   const ALL_PERMS = ["tag_items","add_items","remove_items","edit_briefs","approve_briefs","send_briefs","manage_mailing_list","manage_members","ask_ai"];
   const can = (p) => state.role === "admin" || (state.perms || []).includes(p);
-  const RELEVANCE_LABEL = { relevant: "Regional", country: "Country-specific", pao: "PAO-specific", not_relevant: "Not relevant" };
-  const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", leadership: "Leadership change", contact: "Contact change" };
+  const RELEVANCE_LABEL = { high: "High", medium: "Medium", low: "Low", none: "No relevance" };
+  const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", comment: "Opportunity to comment", leadership: "Leadership change", contact: "Contact change" };
   const GROUP_ORDER = ["Member", "Associate", "Affiliate", "Stakeholder", "Inbox"];
   const GROUP_LABEL = { Member: "Members", Associate: "Associates", Affiliate: "Affiliates", Stakeholder: "Stakeholders", Inbox: "Inbox" };
   const STALE_DAYS = 60;
@@ -147,7 +147,7 @@
       period: $("#f-period").value,
       status: $("#f-status").value,
       sources: $$("input[name=src]:checked").map((i) => i.value).concat("_seen_pw"),
-      kinds: $$("input[name=kind]:checked").map((i) => i.value),
+      kinds: $$("input[name=kind]:checked").map((i) => i.value).concat("_seen_cm"),
       baseline: $("#f-baseline").checked,
       q: $("#f-search").value.trim().toLowerCase(),
     };
@@ -160,10 +160,12 @@
     try { f = JSON.parse(localStorage.getItem(NOTE_FILTER_KEY) || "null"); } catch { /* ignore */ }
     if (!f) return;
     if (f.period) $("#f-period").value = f.period;
-    if (f.status) $("#f-status").value = f.status;
+    // ignore a saved choice that no longer exists (e.g. the old "Country-specific only")
+    if (f.status && $(`#f-status option[value="${f.status}"]`)) $("#f-status").value = f.status;
     // "page_watch" is new: tick it for people whose saved filters predate it
     if (Array.isArray(f.sources)) $$("input[name=src]").forEach((i) => (i.checked = f.sources.includes(i.value) || (i.value === "page_watch" && !f.sources.includes("_seen_pw"))));
-    if (Array.isArray(f.kinds)) $$("input[name=kind]").forEach((i) => (i.checked = f.kinds.includes(i.value)));
+    // "comment" is new: tick it for people whose saved filters predate it
+    if (Array.isArray(f.kinds)) $$("input[name=kind]").forEach((i) => (i.checked = f.kinds.includes(i.value) || (i.value === "comment" && !f.kinds.includes("_seen_cm"))));
     $("#f-baseline").checked = !!f.baseline;
   }
   // what an item is: saved by the collector, or guessed from its address for older items
@@ -191,13 +193,10 @@
     if (it.is_baseline && !f.baseline) return false;
     // in the period = published in it, or newly found by us in it
     if (since && !(itemDate(it) >= since || it.first_seen_at >= since)) return false;
-    if (f.status === "hide_not" && it.relevance === "not_relevant") return false;
+    if (f.status === "hide_not" && it.relevance === "none") return false;
     if (f.status === "unreviewed" && it.relevance) return false;
-    if (f.status === "relevant" && it.relevance !== "relevant") return false;
-    if (f.status === "country" && it.relevance !== "country") return false;
-    if (f.status === "pao" && it.relevance !== "pao") return false;
-    if (f.status === "tagged" && !["relevant", "country", "pao"].includes(it.relevance)) return false;
-    if (f.status === "not_relevant" && it.relevance !== "not_relevant") return false;
+    if (f.status === "high_med" && !["high", "medium"].includes(it.relevance)) return false;
+    if (["high", "medium", "low", "none"].includes(f.status) && it.relevance !== f.status) return false;
     if (f.q) {
       const hay = `${it.title} ${translations[it.id] || ""} ${it.ai_summary || ""} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
       if (!hay.includes(f.q)) return false;
@@ -354,14 +353,14 @@
       ${it.source === "page_watch" ? `<button class="link small" data-content="${esc(it.id)}" data-show="Show before / now" data-hide="Hide before / now" type="button">Show before / now</button><pre class="full" hidden></pre>` : ""}
       <div class="actions">
         <div class="seg" role="group" aria-label="Relevance">
-          <button type="button" data-rel="relevant" aria-pressed="${it.relevance === "relevant"}" title="Matters across Asia-Pacific / to CAPA as a whole"${ro}>Regional</button>
-          <button type="button" data-rel="country" aria-pressed="${it.relevance === "country"}" title="Only matters in that country (laws, regulators, the profession there)"${ro}>Country-specific</button>
-          <button type="button" data-rel="pao" aria-pressed="${it.relevance === "pao"}" title="About the PAO itself (its own events, council, exams, CPD, awards)"${ro}>PAO-specific</button>
-          <button type="button" data-rel="not_relevant" aria-pressed="${it.relevance === "not_relevant"}"${ro}>Not relevant</button>
+          <button type="button" data-rel="high" aria-pressed="${it.relevance === "high"}" title="Matters to CAPA's regional work - goes in the brief's Key developments"${ro}>High</button>
+          <button type="button" data-rel="medium" aria-pressed="${it.relevance === "medium"}" title="Worth knowing - goes in the brief's Other updates"${ro}>Med</button>
+          <button type="button" data-rel="low" aria-pressed="${it.relevance === "low"}" title="Kept for the record (e.g. a single-country issue) - tracker only, not in the brief"${ro}>Low</button>
+          <button type="button" data-rel="none" aria-pressed="${it.relevance === "none"}" title="Not relevant to CAPA - hidden by default, cleaned up after 12 months"${ro}>No relevance</button>
         </div>
         <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category"${ro}>
         <input class="notes" value="${esc(it.notes || "")}" placeholder="Notes" aria-label="Notes"${ro}>
-        ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type"${ro}>${["news", "events", "publications", "articles"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
+        ${it.source !== "page_watch" ? `<select class="kind-pick" aria-label="Type" title="Type"${ro}>${["news", "events", "publications", "articles", "comment"].map((k) => `<option value="${k}"${kindOf(it) === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>` : ""}
         ${nonEnglish(it) ? `<button class="link small" type="button" data-translate="${esc(it.id)}" title="Show the headline in English (Google Translate)">${showingEnglish.has(it.id) ? "Show original" : "Translate"}</button>` : ""}
         ${nonEnglish(it) && canTranslatePage(it) ? `<a class="link small" href="${esc(pageTranslateUrl(it.url))}" target="_blank" rel="noopener" title="Open the whole page translated">Translate page</a>` : ""}
         ${can("remove_items") ? (it.removed_at

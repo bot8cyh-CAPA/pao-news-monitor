@@ -76,7 +76,7 @@
       </div>
       <div class="brief-layout">
         <aside class="panel brief-side"><h3>Briefs</h3><ol id="brief-list" class="brief-list"></ol>
-          <p class="muted small">Written every Monday morning from the past week's items (except ones marked Not relevant). Team members can edit; admins approve.</p></aside>
+          <p class="muted small">Written every Monday morning from the past week's High and Medium items (plus any open opportunities to comment). Team members can edit; admins approve.</p></aside>
         <div class="panel brief-main">
           <div class="brief-tools" id="brief-tools"></div>
           <div id="brief-body"></div>
@@ -161,13 +161,13 @@
       </label>
       <label>Show
         <select id="f-status">
-          <option value="hide_not" selected>All except not relevant</option>
+          <option value="hide_not" selected>All except no relevance</option>
           <option value="unreviewed">Unreviewed only</option>
-          <option value="tagged">All tagged (regional, country, PAO)</option>
-          <option value="relevant">Regional only</option>
-          <option value="country">Country-specific only</option>
-          <option value="pao">PAO-specific only</option>
-          <option value="not_relevant">Not relevant only</option>
+          <option value="high_med">High + Medium (brief material)</option>
+          <option value="high">High only</option>
+          <option value="medium">Medium only</option>
+          <option value="low">Low only</option>
+          <option value="none">No relevance only</option>
           <option value="all">Everything</option>
           <option value="removed">Removed (to restore)</option>
         </select>
@@ -187,6 +187,7 @@
         <label><input type="checkbox" name="kind" value="events" checked> Events</label>
         <label><input type="checkbox" name="kind" value="publications" checked> Publications</label>
         <label><input type="checkbox" name="kind" value="articles" checked> Newsletters / articles</label>
+        <label><input type="checkbox" name="kind" value="comment" checked> Opportunities to comment</label>
         <label><input type="checkbox" name="kind" value="changes" checked> Leadership / contact changes</label>
       </fieldset>
       <label class="check"><input type="checkbox" id="f-baseline"> Include first-scan links</label>

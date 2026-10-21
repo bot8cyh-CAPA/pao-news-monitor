@@ -427,7 +427,8 @@
     language: ["language", "lang"],
   };
   const TYPE_MAP = { news: "news", event: "events", events: "events", publication: "publications", publications: "publications",
-    newsletter: "articles", newsletters: "articles", article: "articles", articles: "articles", "newsletter / article": "articles", "newsletter/article": "articles" };
+    newsletter: "articles", newsletters: "articles", article: "articles", articles: "articles", "newsletter / article": "articles", "newsletter/article": "articles",
+    comment: "comment", "opportunity to comment": "comment", consultation: "comment", "exposure draft": "comment" };
   let pending = [];
 
   function findPao(v) {

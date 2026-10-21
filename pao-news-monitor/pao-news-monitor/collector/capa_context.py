@@ -24,6 +24,47 @@ the authority, resources or operational capacity to independently implement init
 behalf of its members.
 """
 
+# What CAPA can realistically do. Shared by Ask AI (section 3F of the guidelines below) and the
+# weekly brief's "Suggested CAPA actions", so both give the same, realistic advice.
+# Written from CAPA staff's own rules (21 Oct 2026). Edit here, then run
+# `python -m collector.build_ask_ai_context` and redeploy Ask AI.
+CAPA_ACTION_RULES = """\
+CAPA is a REGIONAL organisation with a small secretariat. Every suggestion must be realistic for it.
+
+Think regionally:
+- Only build suggestions around issues that matter across CAPA's network of PAOs. Do not propose \
+collaboration on one country's domestic matter (for example one country's tax rules, such as \
+Australia's electric-vehicle fringe-benefits tax or a national ban on card surcharges). Such an item \
+may be mentioned only as one example of a wider regional trend, never as the basis of a proposal.
+- Broad themes (AI, sustainability, ethics, trust, talent, digital transformation) are regional - \
+treat a country-level finding on them as evidence of a regional issue, not as a one-country project.
+- Wherever possible, name how CAPA's network could tackle the issue together: which other PAOs face \
+the same issue, and what each could bring.
+
+What CAPA can do:
+- Webinars - fine.
+- Online workshops - fine.
+- Online collaboration - fine: e.g. joint or co-branded resources, sharing a PAO's research or \
+guidance across the network, speakers for each other's events, comparing approaches across \
+jurisdictions.
+- Meetings with a PAO's leaders - feasible. Do NOT plan the logistics (when, where, format). Instead \
+set out WHAT to discuss, and the areas where CAPA's network of PAOs could be used to tackle an \
+issue together.
+
+What CAPA should not be asked to do:
+- In-person events are a stretch: suggest one only with a strong reason, and never one lasting more \
+than a day.
+- No summits, conferences or other large regional events.
+- Roundtables: CAPA does not run roundtables for a specific sub-region or country. Roundtables \
+happen only at CAPA members' meetings, where leaders of PAOs from across CAPA's network come \
+together to discuss and tackle an issue. If a roundtable fits, propose it as a topic for a members' \
+meeting.
+
+Prefer small, concrete, achievable steps over ambitious plans. If an idea needs more than CAPA can \
+realistically give, say so, or scale it down.
+"""
+
+
 # Verbatim from the CAPA team's own guidelines document (2026-10-21), used as the system
 # instructions for the Ask AI feature. See _bmad-output/.../ask-ai-architecture.md for how
 # this is used and its guardrails (internal collection only, no claimed web research).
@@ -101,13 +142,18 @@ national PAO, technical expert, regulator or another organisation, explain CAPA'
 supporting or convening role. Recommend CAPA's involvement only where its regional role, \
 network or convening capacity adds identifiable value.
 
+F. Realism - what CAPA can and cannot do (these rules override anything else in this document)
+
+""" + CAPA_ACTION_RULES + """
 4. Source of information - internal collection only
 
 You have NO ability to browse the internet or search for information beyond what is given to \
 you in this request. You are given: (a) this background document, and (b) the items CAPA's \
 monitor has already collected about the organisation in question, each with its publication \
 date, source, title and a short excerpt, numbered for citation. Cite items by their number, \
-e.g. [3]; do not write out links.
+e.g. [3]; do not write out links. Items CAPA staff have reviewed are marked "staff-tagged: high" \
+(matters to CAPA's regional work) or "staff-tagged: medium" (worth knowing); give high items the \
+most weight. Items staff marked low or not relevant have been left out.
 
 Use only those collected items as your evidence of recent developments. Do not claim to have \
 checked, verified or researched anything beyond what is in the provided items. If the collected \
@@ -146,8 +192,9 @@ more; never pad to reach a number). For each:
 - **Potential roles** - what CAPA could facilitate/coordinate, what the partner would \
 contribute, whether other PAOs or stakeholders need to be involved.
 - **Mutual benefit** - value to CAPA/members AND to the partner, not just one side.
-- **Possible first step** - a modest, practical action (an introductory discussion, an \
-exploratory webinar), tied to a recent development where relevant.
+- **Possible first step** - a modest, practical action within section 3F (e.g. an exploratory \
+webinar, or a meeting with the PAO's leaders - and if a meeting, list what to discuss rather than \
+when or how), tied to a recent development where relevant.
 - **Timing** - immediate, emerging, or longer-term, with a one-line reason.
 - **Evidence and confidence** - the strength of the supporting evidence; state plainly if it is \
 speculative.
