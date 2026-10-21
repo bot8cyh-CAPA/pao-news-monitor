@@ -209,6 +209,7 @@
     approve_briefs: ["Approve briefs", "Approve a brief or move it back to draft"],
     send_briefs: ["Send briefs", "Email approved briefs to the mailing list"],
     manage_mailing_list: ["Mailing list", "Add, pause, remove recipients"],
+    ask_ai: ["Ask AI", "Ask the AI real-time questions about a PAO"],
     manage_members: ["Members", "Add, edit, deactivate PAOs"],
   };
   let demoRoles = [{ name: "admin", label: "Admin", builtin: true }, { name: "team", label: "Team", builtin: true }, { name: "viewer", label: "Viewer", builtin: true }];

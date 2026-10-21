@@ -9,7 +9,7 @@
   const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
   const SOURCE_LABEL = { website: "Website", google_news: "Google News", newsapi: "NewsAPI", email: "Email", manual: "Added by team", page_watch: "Page watch" };
   const THEME_LABEL = { ai_digital: "AI & digital", talent: "Talent", sustainability: "Sustainability", ethics_standards: "Ethics & standards" };
-  const ALL_PERMS = ["tag_items","add_items","remove_items","edit_briefs","approve_briefs","send_briefs","manage_mailing_list","manage_members"];
+  const ALL_PERMS = ["tag_items","add_items","remove_items","edit_briefs","approve_briefs","send_briefs","manage_mailing_list","manage_members","ask_ai"];
   const can = (p) => state.role === "admin" || (state.perms || []).includes(p);
   const RELEVANCE_LABEL = { relevant: "Regional", country: "Country-specific", pao: "PAO-specific", not_relevant: "Not relevant" };
   const KIND_LABEL = { news: "News", events: "Event", publications: "Publication", articles: "Newsletter / article", leadership: "Leadership change", contact: "Contact change" };

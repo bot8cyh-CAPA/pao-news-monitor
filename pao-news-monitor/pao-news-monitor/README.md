@@ -16,7 +16,7 @@ Every morning this tool checks the CAPA member bodies and stakeholders for news,
 LinkedIn and Facebook are not scraped, because that's against their terms (and Facebook needs a login). Each PAO has a **LinkedIn** button that opens a LinkedIn search, and PAOs with a `facebook` address in `paos.csv` get a **Facebook** button, so you can check by hand.
 
 ### Updating from an earlier version
-If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`, then `update-6.sql`, then `update-7.sql`, then `update-8.sql`, then `update-9.sql`, then `update-10.sql`.)
+If your database was set up before update 2 (publications/events, page watch, Members, roles), paste `supabase/update-2.sql` and then `supabase/update-3.sql` (password sign-in, Admin tab) into **Supabase → SQL Editor → New query** and click **Run** once. Until then everything else keeps working; the Actions run summary reminds you. (New installs: run `schema.sql`, then `update-2.sql`, then `update-3.sql`, then `update-4.sql`, then `update-5.sql`, then `update-6.sql`, then `update-7.sql`, then `update-8.sql`, then `update-9.sql`, then `update-10.sql`, then `update-11.sql`.)
 
 ## Sign-in (email + password)
 People sign in with their email and a password. Email is only used to confirm a new account and for "Forgot password".
@@ -41,7 +41,7 @@ Open it with **Weekly brief** at the top of the tracker. Team members can **Edit
 
 **Sending it:** admins keep a **Mailing list** on the Admin tab (add one by one, or paste many from Outlook/Excel; pause or remove anyone). On an approved brief, **Send to mailing list… → Send now** queues it; within about 10 minutes it's emailed from the monitor's Gmail as "CAPA News Monitor", with everyone in **BCC** and replies going to the admin who pressed Send. The brief then shows who sent it, when and to how many (or the error, if sending failed). Change of mind before it goes? **Cancel sending**. The staff-only "draft written by AI" banner is replaced by a short note that it was prepared with AI and reviewed by CAPA staff. Prefer to send it yourself? The same box has **send it from your own Outlook** (copies the brief and opens Outlook with the list in BCC).
 
-Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql`, `update-7.sql`, `update-8.sql`, `update-9.sql` and `update-10.sql` once.
+Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql`, `update-7.sql`, `update-8.sql`, `update-9.sql`, `update-10.sql` and `update-11.sql` once.
 
 ## Roles and permissions
 Admins manage these on the **Admin** tab.
@@ -175,3 +175,17 @@ Every daily run also tidies the database so it doesn't keep growing:
 - anything tagged Regional, Country-specific or PAO-specific, and anything a brief cited, is kept forever.
 
 Deleted items leave only their fingerprint behind (table `seen_items`, about 30 bytes each), so they're never re-added. Leadership/contact page watch only ever keeps the latest copy of each page. Set up with `supabase/update-10.sql`.
+
+## Ask AI setup
+
+**Ask AI** is a page (`ask-ai.html`) where staff with the *Ask AI* permission can ask about one PAO at a time - e.g. "what are possible routes of collaboration with this PAO?" - and get an answer in seconds, grounded only in that PAO's collected items (never a live web search; see `_bmad-output/planning-artifacts/architecture/ask-ai-architecture.md` for why).
+
+Unlike the rest of the project, this needs a live function, not just a scheduled job, so it has its own one-off setup:
+
+1. Run `supabase/update-11.sql` (adds the thread table and the *Ask AI* permission).
+2. Install the Supabase CLI and log in / link it to your project (`supabase login`, `supabase link`).
+3. Set the AI provider keys once (same ones already used by the collector): `supabase secrets set GROQ_API_KEY=... GEMINI_API_KEY=... CF_ACCOUNT_ID=... CF_AI_TOKEN=... OPENROUTER_API_KEY=...` (any subset is fine - it tries Groq first, then falls back).
+4. Deploy: `supabase functions deploy ask-ai` (run from the repo's `pao-news-monitor/pao-news-monitor` folder).
+5. On the Admin tab, make sure a role (Team has it by default) has the *Ask AI* permission ticked.
+
+To change what the AI is told about CAPA or how it should reason about collaboration, edit `collector/capa_context.py`, run `python -m collector.build_ask_ai_context`, then redeploy with step 4.

@@ -2,6 +2,9 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-21 — Ask AI: real-time Q&A about a PAO
+New page (**Ask AI**, needs the new permission of the same name) where staff pick a PAO and ask it questions, e.g. "what are possible routes of collaboration with this PAO?" Unlike everything else in the monitor, this answers live in a few seconds rather than on a schedule - it's the system's first real-time feature, built as a Supabase Edge Function so it reuses the same sign-in and roles as the rest of the site, never exposes AI keys to the browser, and stays on free usage. Answers are grounded only in that PAO's collected items (it has no ability to browse the web) and cite every claim like the weekly brief does. Follows the collaboration-assessment guidelines the team provided - realistic, evidence-based opportunities, not generic suggestions. Needs `supabase/update-11.sql` plus a one-off Edge Function deploy (see README "Ask AI setup"). Architecture decision recorded at `_bmad-output/planning-artifacts/architecture/ask-ai-architecture.md`.
+
 ## 2026-10-20 — Remove and restore items, automatic clean-up
 Added a **Remove** link on each item (red, needs the new "Remove items" permission) that hides it everywhere - tracker, brief, exports. **Show > Removed** lists what's removed, with a **Restore** link. Every daily run also deletes old clutter on its own: removed items after 90 days, untagged/Not relevant items after 12 months. Anything tagged, or cited in a brief, is kept forever. A deleted item is remembered so it never gets collected again. Needs `supabase/update-10.sql`.
 

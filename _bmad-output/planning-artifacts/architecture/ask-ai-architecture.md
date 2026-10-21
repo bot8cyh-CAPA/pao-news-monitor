@@ -1,0 +1,65 @@
+---
+title: Architecture Decision - Ask AI (real-time PAO Q&A)
+created: 2026-10-21
+updated: 2026-10-21
+status: final
+---
+
+# Architecture Decision: Ask AI
+
+## 1. Why this needed a decision
+
+Every other part of the monitor runs on a schedule (GitHub Actions cron): collect news at 05:40, draft the brief at 07:45, send approved briefs every ~30 minutes. Nothing today runs *in response to a user action*. Ask AI needs an answer back within seconds of a staff member clicking a button, which a cron job can't do. This is the system's first on-demand, server-side compute.
+
+## 2. Options considered
+
+| Option | Verdict |
+| --- | --- |
+| **Supabase Edge Function** | **Chosen.** Already have Supabase; function reuses the same auth/roles; keys never reach the browser; free tier (500K calls/month) is far beyond 7 users asking a few questions a day. |
+| Cloudflare Worker with an API route | Rejected for now. Would split "backend logic" across two platforms (Supabase + Cloudflare) instead of one, and means re-implementing permission checks that Supabase already enforces via RLS/`has_perm`. Revisit only if Edge Functions prove unworkable. |
+| Browser calls the AI provider directly | Rejected. Would expose the AI API key in the page source - a hard no per the project's own security rules (secrets never in client code). |
+| New standalone server (e.g. a small Node app) | Rejected. New hosting, new account, new recurring cost risk, and another thing to hand over - against the brief's "minimal additional infrastructure" guidance. |
+
+## 3. How it works
+
+```
+Browser (ask-ai.html)
+  -> supabase.functions.invoke('ask-ai', { pao_id, thread_id?, question })
+       -> Edge Function (Deno, runs on Supabase's infrastructure):
+            1. Reads the caller's identity from their Supabase session (same login as the rest of the site)
+            2. Calls has_perm('ask_ai') - refuses if false
+            3. Loads: that PAO's items, the CAPA context file, the thread's prior messages (if continuing)
+            4. Calls Groq first (same provider used for tagging), falls back same order as the brief
+            5. Saves the question + answer to ask_ai_threads (service role, bypasses RLS by design -
+               the function itself already checked the permission)
+            6. Returns the answer + which items it cited
+  <- Browser shows the answer, offers "Ask a follow-up" or "End chat"
+```
+
+## 4. Data
+
+New table `ask_ai_threads`: one row per conversation. `pao_id`, `started_by`, `started_at`, `ended_at` (null while still open), `messages` (jsonb array of `{role, content, cited_item_ids}`). Shared visibility: anyone with the `ask_ai` permission can read any PAO's threads, same as everyone already sees the same tagged items - this builds a shared record of what's been asked, not a private chat.
+
+## 5. Guardrails (carried over from the user's collaboration-guidelines document)
+
+- Answers are drawn **only from that PAO's collected items** plus the CAPA context file - no live web search. The free AI providers used have no real internet access when called this way; asking them to "research externally" would risk invented sources. If the collection doesn't have enough, the AI says so rather than guessing.
+- Every claim in an answer cites the item(s) it came from, same `[1][2]` style as the brief.
+- Output follows the structure in the user's collaboration-guidelines document (rationale, potential roles, mutual benefit, first step, timing, evidence/confidence) - never a flat "do X" claim.
+- A thread is capped at 15 exchanges; past that, the UI asks the user to start a new one. Keeps each request's size bounded and avoids runaway token growth in a long back-and-forth.
+- Scope stays separate from the weekly brief - the brief's "Suggested CAPA actions" line is untouched.
+
+## 6. Cost and limits
+
+- Groq free tier (14,400 requests/day on the model used) comfortably covers 10-20 messages/day across 7 users; Gemini (now ~20 requests/day free) is not relied on for this feature.
+- Supabase Edge Functions: 500K invocations/month free - not a realistic constraint at this scale.
+- No new paid service, no new account to create.
+
+## 7. Deployment (new type of step for this project)
+
+Unlike the SQL updates (pasted into Supabase's SQL editor) and the web page (auto-deploys on push), the Edge Function needs **one extra manual step**: `supabase functions deploy ask-ai` from a machine with the Supabase CLI logged into the project, and the AI provider keys set once via `supabase secrets set`. This is documented in the README under "Ask AI setup" so it survives handover.
+
+## 8. What this does NOT change
+
+- The daily collector, brief generation and sending are untouched - same cron jobs, same logic.
+- No member data moves anywhere new; the function reads items already in Supabase.
+- No change to who can sign in or what Team/Viewer can already do, beyond the new `ask_ai` permission being available to tick.

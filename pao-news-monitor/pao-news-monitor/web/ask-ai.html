@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask AI - PAO News Monitor</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230e5a57'/><path d='M8 10h16M8 16h16M8 22h10' stroke='white' stroke-width='3' stroke-linecap='round'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="ask-ai-page">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>Ask AI</h1>
+        <p class="muted small">Ask about one PAO - answers are grounded only in what the monitor has collected. <a href="index.html">← Back to the tracker</a></p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="user" class="muted small"></span>
+    </div>
+  </header>
+
+  <div id="signin-needed" class="error-box" hidden>Please <a href="index.html">sign in on the tracker</a> first, then come back here.</div>
+  <div id="no-perm" class="error-box" hidden>Your role doesn't include Ask AI. Ask an admin to tick it on the Admin tab.</div>
+  <div id="not-set-up" class="error-box" hidden>Ask AI needs a one-off setup step (<code>supabase/update-11.sql</code> plus the Edge Function) - ask an admin.</div>
+
+  <main id="ask-ai" class="ask-ai-main" hidden>
+    <section class="ask-ai-setup">
+      <label>PAO
+        <select id="pao"></select>
+      </label>
+      <button class="btn ghost" id="new-chat" type="button" disabled>New question</button>
+    </section>
+
+    <section id="thread" class="ask-ai-thread" aria-live="polite"></section>
+
+    <form id="ask-form" class="ask-ai-form">
+      <textarea id="question" placeholder="e.g. What are possible routes of collaboration with this PAO?" rows="2" required></textarea>
+      <button class="btn primary" type="submit" id="ask-btn">Ask</button>
+    </form>
+    <p id="ask-note" class="muted small"></p>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="ask-ai.js"></script>
+</body>
+</html>
