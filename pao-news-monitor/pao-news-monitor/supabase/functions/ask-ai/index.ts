@@ -54,8 +54,26 @@ async function askModel(env: Record<string, string | undefined>, messages: unkno
   throw new Error(lastError);
 }
 
+// The tracker site lives on a different domain from Supabase, so the browser first asks
+// "may I call you?" (a CORS preflight). Every response must carry these headers or the
+// browser blocks the call with "Failed to send a request to the Edge Function".
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("POST only", { status: 405 });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return new Response("POST only", { status: 405, headers: CORS });
+  try {
+    return await handle(req);
+  } catch (e) {
+    return json({ error: `Ask AI failed: ${(e as Error).message}` }, 500);
+  }
+});
+
+async function handle(req: Request): Promise<Response> {
 
   let body: { pao_id?: string; thread_id?: number; question?: string };
   try { body = await req.json(); } catch { return json({ error: "Bad request body" }, 400); }
@@ -156,8 +174,8 @@ ${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PA
   }
 
   return json({ thread_id: threadId, answer: answer.text, model: answer.model, cited_item_ids: [...new Set(citedIds)] });
-});
+}
 
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }

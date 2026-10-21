@@ -60,7 +60,12 @@
         const { data, error } = await db.functions.invoke("ask-ai", {
           body: { pao_id: $("#pao").value, thread_id: threadId, question: q },
         });
-        if (error) throw error;
+        if (error) {
+          // The function sends back a readable reason (e.g. "AI providers all failed"); show that, not the generic wrapper.
+          let detail = "";
+          try { detail = (await error.context.json()).error || ""; } catch { /* no readable body */ }
+          throw new Error(detail || error.message);
+        }
         if (data?.error) throw new Error(data.error);
         threadId = data.thread_id;
         messages.push({ role: "assistant", content: data.answer, cited_item_ids: data.cited_item_ids, model: data.model, at: new Date().toISOString() });
