@@ -138,13 +138,20 @@ async function handle(req: Request): Promise<Response> {
   const { data: pao } = await svc.from("paos").select("id,name,abbr,jurisdiction,grp,website").eq("id", pao_id).single();
   if (!pao) return json({ error: "Unknown PAO" }, 404);
 
-  const { data: items } = await svc
+  // Which items the AI sees: this PAO's items, minus anything Removed or tagged "Not relevant" by
+  // staff, newest first by PUBLISH date (falling back to the date the monitor found it, for items
+  // with no publish date) - so an old story that surfaced late doesn't crowd out real recent news.
+  // We pull a wider pool from the database (cheap) and keep the newest MAX_ITEMS (what costs AI tokens).
+  const { data: pool } = await svc
     .from("items")
     .select("id,title,snippet,url,published_at,first_seen_at,source,kind,relevance,category")
     .eq("pao_id", pao_id)
     .is("removed_at", null)
+    .or("relevance.is.null,relevance.neq.not_relevant")
     .order("first_seen_at", { ascending: false })
-    .limit(MAX_ITEMS);
+    .limit(300);
+  const when = (it: { published_at?: string | null; first_seen_at?: string | null }) => it.published_at || it.first_seen_at || "";
+  const items = (pool ?? []).sort((a, b) => when(b).localeCompare(when(a))).slice(0, MAX_ITEMS);
 
   let thread: { id: number; messages: { role: string; content: string; cited_item_ids?: string[]; at: string }[] } | null = null;
   if (body.thread_id) {
@@ -154,8 +161,8 @@ async function handle(req: Request): Promise<Response> {
   const priorTurns = thread ? thread.messages.filter((m) => m.role !== "system").length / 2 : 0;
   if (priorTurns >= MAX_TURNS) return json({ error: "This conversation has reached its limit - please start a new one." }, 400);
 
-  const numbered = (items ?? []).map((it, i) => {
-    const date = (it.published_at ?? it.first_seen_at ?? "").slice(0, 10);
+  const numbered = items.map((it, i) => {
+    const date = when(it).slice(0, 10);
     return `[${i + 1}] ${date} | ${it.source}${it.kind && it.kind !== "news" ? ` (${it.kind})` : ""}${it.relevance ? ` | staff-tagged: ${it.relevance}` : ""} | ${it.title}${it.snippet ? `\n    ${short(it.snippet)}` : ""}`;
   });
 
@@ -188,16 +195,24 @@ ${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PA
     return json({ error: `No AI model was available right now (${(e as Error).message}). Try again shortly.` }, 503);
   }
 
-  const citedIds = [...answer.text.matchAll(/\[(\d+)\]/g)]
-    .map((m) => Number(m[1]))
-    .filter((n) => n >= 1 && n <= numbered.length)
-    .map((n) => items![n - 1].id);
+  // Citation numbers -> the actual articles, so the page can turn [5] into a link and list sources.
+  // Handles [5], [2][5] and [19, 33] / [19/33] styles.
+  const citedNums = [...new Set(
+    [...answer.text.matchAll(/\[(\d+(?:\s*[,/]\s*\d+)*)\]/g)]
+      .flatMap((m) => m[1].split(/[,/]/).map((x) => Number(x.trim())))
+      .filter((n) => n >= 1 && n <= items.length),
+  )].sort((a, b) => a - b);
+  const citedIds = citedNums.map((n) => items[n - 1].id);
+  const sources = citedNums.map((n) => {
+    const it = items[n - 1];
+    return { n, id: it.id, title: it.title, url: it.url, source: it.source, date: when(it).slice(0, 10) };
+  });
 
   const now = new Date().toISOString();
   const newMessages = [
     ...(thread?.messages ?? []),
     { role: "user", content: question, at: now },
-    { role: "assistant", content: answer.text, cited_item_ids: [...new Set(citedIds)], at: now, model: answer.model },
+    { role: "assistant", content: answer.text, cited_item_ids: citedIds, sources, at: now, model: answer.model },
   ];
 
   let threadId = thread?.id;
@@ -212,7 +227,7 @@ ${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PA
     threadId = created?.id;
   }
 
-  return json({ thread_id: threadId, answer: answer.text, model: answer.model, cited_item_ids: [...new Set(citedIds)] });
+  return json({ thread_id: threadId, answer: answer.text, model: answer.model, cited_item_ids: citedIds, sources });
 }
 
 function short(s: string) {

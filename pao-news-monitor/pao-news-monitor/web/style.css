@@ -315,3 +315,13 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 .ai-error { background: var(--error-soft); color: var(--error); }
 .ask-ai-form { display: flex; gap: 10px; align-items: flex-end; }
 .ask-ai-form textarea { flex: 1; font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); resize: vertical; }
+.ai-table { overflow-x: auto; margin: 0 0 10px; }
+.ai-table table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.ai-table th, .ai-table td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.ai-table th { background: var(--accent-soft); }
+.ai-cite { text-decoration: none; font-weight: 600; }
+.ai-cite:hover { text-decoration: underline; }
+.ai-sources { margin: 6px 0 4px; font-size: 13.5px; }
+.ai-sources summary { cursor: pointer; font-weight: 600; }
+.ai-sources ol { margin: 6px 0 0; padding-left: 26px; }
+.ai-sources li { margin: 3px 0; }

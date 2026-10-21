@@ -71,7 +71,7 @@
         }
         if (data?.error) throw new Error(data.error);
         threadId = data.thread_id;
-        messages.push({ role: "assistant", content: data.answer, cited_item_ids: data.cited_item_ids, model: data.model, at: new Date().toISOString() });
+        messages.push({ role: "assistant", content: data.answer, cited_item_ids: data.cited_item_ids, sources: data.sources || [], model: data.model, at: new Date().toISOString() });
         $("#new-chat").disabled = false;
       } catch (err) {
         messages.push({ role: "error", content: err.message || "Something went wrong." });
@@ -90,7 +90,7 @@
       const n = m.cited_item_ids?.length || 0;
       const meta = [n ? `Cited ${n} collected item${n === 1 ? "" : "s"}` : "", m.model ? `answered by ${m.model}` : ""].filter(Boolean).join(" · ");
       const cited = meta ? `<p class="muted small">${esc(meta)}</p>` : "";
-      return `<div class="ai-msg ai-assistant">${escMd(m.content)}${cited}</div>`;
+      return `<div class="ai-msg ai-assistant">${escMd(m.content, m.sources)}${sourcesList(m.sources)}${cited}</div>`;
     }).join("") || `<p class="empty-note">Ask a question about the selected PAO - e.g. "What's changed recently?" or "What are possible routes of collaboration?"</p>`;
     $("#ask-note").textContent = threadId ? "Replies continue this conversation. Start a new question to begin a fresh one." : "";
     // bring the newest message into view from its top, so a long answer is read from the start
@@ -98,21 +98,54 @@
     if (last && messages.length) last.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // Light markdown for AI answers: headings (#..####), bullets (* / -), numbered lists,
-  // --- dividers, **bold**, *italic*. Everything is HTML-escaped first, so nothing in an
-  // answer can inject markup. [n] citation markers stay as plain text.
-  function escMd(s) {
-    const inline = (t) => t.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, "$1<i>$2</i>");
+  // Only ever link to http(s) addresses - never javascript: or other schemes.
+  const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "");
+
+  // Sources list under an answer: every article the AI cited, numbered as in the text.
+  function sourcesList(sources) {
+    if (!sources?.length) return "";
+    const li = sources.map((x) => {
+      const url = safeUrl(x.url);
+      const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(x.title || url)}</a>` : esc(x.title || "(untitled)");
+      return `<li value="${Number(x.n)}">${title} <span class="muted small">${esc([x.source, x.date].filter(Boolean).join(" · "))}</span></li>`;
+    }).join("");
+    return `<details class="ai-sources"><summary>Sources (${sources.length})</summary><ol>${li}</ol></details>`;
+  }
+
+  // Light markdown for AI answers: headings (#..####), bullets (* / -), numbered lists, tables,
+  // --- dividers, **bold**, *italic*, and [n] citations turned into links to the article.
+  // Everything is HTML-escaped first, so nothing in an answer can inject markup.
+  function escMd(s, sources) {
+    const byN = new Map((sources || []).map((x) => [Number(x.n), x]));
+    const cite = (n) => {
+      const x = byN.get(Number(n)), url = x && safeUrl(x.url);
+      return url ? `<a class="ai-cite" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(x.title || "")}">${n}</a>` : n;
+    };
+    const inline = (t) => t
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+      .replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, "$1<i>$2</i>")
+      .replace(/\[(\d+(?:\s*[,/]\s*\d+)*)\]/g, (_, inner) => `[${inner.replace(/\d+/g, cite)}]`);
+    const cells = (row) => row.replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
     const out = [];
-    let list = null, para = [];
+    let list = null, para = [], table = [];
     const flushPara = () => { if (para.length) { out.push(`<p>${para.map(inline).join("<br>")}</p>`); para = []; } };
     const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    const flushTable = () => {
+      if (!table.length) return;
+      const rows = table.filter((r) => !/^\|?\s*:?-{2,}/.test(r));   // drop the |---|---| separator line
+      const [head, ...body] = rows;
+      out.push(`<div class="ai-table"><table><thead><tr>${cells(head).map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${
+        body.map((r) => `<tr>${cells(r).map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+      table = [];
+    };
     for (const raw of esc(s).split("\n")) {
       const line = raw.trim();
       let m;
+      if (line.startsWith("|")) { flushPara(); closeList(); table.push(line); continue; }
+      flushTable();
       if (!line) { flushPara(); closeList(); continue; }
       if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { flushPara(); closeList(); out.push("<hr>"); continue; }
-      if ((m = line.match(/^(#{1,4})\s+(.*)$/))) { flushPara(); closeList(); out.push(`<${m[1].length <= 3 ? "h3" : "h4"}>${inline(m[2])}</${m[1].length <= 3 ? "h3" : "h4"}>`); continue; }
+      if ((m = line.match(/^(#{1,4})\s+(.*)$/))) { flushPara(); closeList(); const h = m[1].length <= 3 ? "h3" : "h4"; out.push(`<${h}>${inline(m[2])}</${h}>`); continue; }
       const bullet = line.match(/^[*\-•]\s+(.*)$/), numbered = line.match(/^\d+[.)]\s+(.*)$/);
       if (bullet || numbered) {
         flushPara();
@@ -124,7 +157,7 @@
       closeList();
       para.push(line);
     }
-    flushPara(); closeList();
+    flushTable(); flushPara(); closeList();
     return out.join("");
   }
 

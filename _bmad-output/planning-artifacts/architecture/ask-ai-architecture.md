@@ -50,7 +50,7 @@ New table `ask_ai_threads`: one row per conversation. `pao_id`, `started_by`, `s
 
 ## 6. Cost and limits
 
-- Groq free tier covers 10-20 messages/day across 7 users, but its binding limit is tokens per MINUTE (gpt-oss-120b 8,000; llama-3.3-70b 12,000, prompt + answer combined). The prompt is therefore capped at the 35 most recent items with 150-character excerpts and no URLs (~5.7k tokens worst case). Long follow-up threads may exceed gpt-oss's cap and fall to llama-3.3. Gemini (~20 requests/day free) is a last resort only.
+- Groq free tier covers 10-20 messages/day across 7 users, but its binding limit is tokens per MINUTE (gpt-oss-120b 8,000; llama-3.3-70b 12,000, prompt + answer combined). The prompt is therefore capped at the 35 most recent items (by publish date, falling back to found date; Removed and staff-tagged Not relevant items excluded) with 150-character excerpts and no URLs (~5.7k tokens worst case). Long follow-up threads may exceed gpt-oss's cap and fall to llama-3.3. Gemini (~20 requests/day free) is a last resort only.
 - Revised 2026-10-21 after first live tests: original 120-item prompt exceeded Groq's per-minute cap, and a 1,800-token answer limit was consumed by model reasoning, truncating answers.
 - Supabase Edge Functions: 500K invocations/month free - not a realistic constraint at this scale.
 - No new paid service, no new account to create.
