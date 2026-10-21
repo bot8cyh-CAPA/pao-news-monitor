@@ -88,12 +88,39 @@
       return `<div class="ai-msg ai-assistant">${escMd(m.content)}${cited}</div>`;
     }).join("") || `<p class="empty-note">Ask a question about the selected PAO - e.g. "What's changed recently?" or "What are possible routes of collaboration?"</p>`;
     $("#ask-note").textContent = threadId ? "Replies continue this conversation. Start a new question to begin a fresh one." : "";
-    $("#thread").scrollTop = $("#thread").scrollHeight;
+    // bring the newest message into view from its top, so a long answer is read from the start
+    const last = $("#thread").lastElementChild;
+    if (last && messages.length) last.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // light markdown: paragraphs, **bold**, and [n] citation markers kept as plain text
+  // Light markdown for AI answers: headings (#..####), bullets (* / -), numbered lists,
+  // --- dividers, **bold**, *italic*. Everything is HTML-escaped first, so nothing in an
+  // answer can inject markup. [n] citation markers stay as plain text.
   function escMd(s) {
-    return esc(s).split(/\n{2,}/).map((p) => `<p>${p.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>")}</p>`).join("");
+    const inline = (t) => t.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, "$1<i>$2</i>");
+    const out = [];
+    let list = null, para = [];
+    const flushPara = () => { if (para.length) { out.push(`<p>${para.map(inline).join("<br>")}</p>`); para = []; } };
+    const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    for (const raw of esc(s).split("\n")) {
+      const line = raw.trim();
+      let m;
+      if (!line) { flushPara(); closeList(); continue; }
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) { flushPara(); closeList(); out.push("<hr>"); continue; }
+      if ((m = line.match(/^(#{1,4})\s+(.*)$/))) { flushPara(); closeList(); out.push(`<${m[1].length <= 3 ? "h3" : "h4"}>${inline(m[2])}</${m[1].length <= 3 ? "h3" : "h4"}>`); continue; }
+      const bullet = line.match(/^[*\-•]\s+(.*)$/), numbered = line.match(/^\d+[.)]\s+(.*)$/);
+      if (bullet || numbered) {
+        flushPara();
+        const kind = bullet ? "ul" : "ol";
+        if (list !== kind) { closeList(); out.push(`<${kind}>`); list = kind; }
+        out.push(`<li>${inline((bullet || numbered)[1])}</li>`);
+        continue;
+      }
+      closeList();
+      para.push(line);
+    }
+    flushPara(); closeList();
+    return out.join("");
   }
 
   boot();

@@ -2,6 +2,9 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-21 — Fix: Ask AI answers cut off and showing ### / ** symbols
+Long answers (several collaboration recommendations) were being squashed into a fixed-height chat box, so they looked like they stopped mid-sentence. The conversation now grows with the page, and each new answer scrolls into view from its first line. Answers also now display properly formatted - headings, bullet points, numbered lists, dividers, bold - instead of the raw formatting symbols the AI writes. Website-only change: no redeploy or database step.
+
 ## 2026-10-21 — Fix: Ask AI "Failed to send a request to the Edge Function"
 The first live test failed because the website and Supabase sit on different web addresses, and browsers block a page from calling another address unless that address says "yes, you're allowed" (called CORS). The Ask AI function never said yes, so every question was blocked before it left the browser. It now answers that check. Also: if something else goes wrong (e.g. all AI providers busy), the page now shows the actual reason instead of a generic error. Needs a redeploy: `supabase functions deploy ask-ai` (no database change).
 

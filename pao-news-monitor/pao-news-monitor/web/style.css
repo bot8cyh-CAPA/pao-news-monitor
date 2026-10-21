@@ -302,10 +302,15 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 .ask-ai-main { max-width: 760px; margin: 0 auto; padding: 0 16px 24px; display: grid; gap: 12px; }
 .ask-ai-setup { display: flex; gap: 10px; align-items: center; padding: 12px 0; }
 .ask-ai-setup select { flex: 1; }
-.ask-ai-thread { min-height: 220px; max-height: 60vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--panel); display: grid; gap: 10px; align-content: start; }
-.ai-msg { border-radius: 10px; padding: 10px 14px; font-size: 14.5px; line-height: 1.5; }
-.ai-msg p { margin: 0 0 8px; } .ai-msg p:last-child { margin-bottom: 0; }
-.ai-user { background: var(--accent-soft); justify-self: end; max-width: 85%; }
+/* answers can be long (several recommendations), so the thread grows with the page instead of squeezing messages into a fixed box */
+.ask-ai-thread { min-height: 220px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
+.ai-msg { flex-shrink: 0; border-radius: 10px; padding: 10px 14px; font-size: 14.5px; line-height: 1.55; scroll-margin-top: 12px; }
+.ai-msg p { margin: 0 0 8px; } .ai-msg > :last-child { margin-bottom: 0; }
+.ai-msg h3, .ai-msg h4 { font-size: 15.5px; margin: 14px 0 6px; } .ai-msg h4 { font-size: 14.5px; }
+.ai-msg > h3:first-child, .ai-msg > h4:first-child { margin-top: 0; }
+.ai-msg ul, .ai-msg ol { margin: 0 0 8px; padding-left: 22px; } .ai-msg li { margin: 3px 0; }
+.ai-msg hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+.ai-user { background: var(--accent-soft); align-self: flex-end; max-width: 85%; white-space: pre-wrap; }
 .ai-assistant { background: var(--bg); border: 1px solid var(--line); }
 .ai-error { background: var(--error-soft); color: var(--error); }
 .ask-ai-form { display: flex; gap: 10px; align-items: flex-end; }
