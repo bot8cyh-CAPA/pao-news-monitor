@@ -29,7 +29,7 @@ Browser (ask-ai.html)
             1. Reads the caller's identity from their Supabase session (same login as the rest of the site)
             2. Calls has_perm('ask_ai') - refuses if false
             3. Loads: that PAO's items, the CAPA context file, the thread's prior messages (if continuing)
-            4. Calls Groq first (same provider used for tagging), falls back same order as the brief
+            4. Calls Groq gpt-oss-120b, then Groq llama-3.3-70b, then Gemini, Cloudflare, OpenRouter; 30s limit per provider, ~110s overall
             5. Saves the question + answer to ask_ai_threads (service role, bypasses RLS by design -
                the function itself already checked the permission)
             6. Returns the answer + which items it cited
@@ -50,7 +50,8 @@ New table `ask_ai_threads`: one row per conversation. `pao_id`, `started_by`, `s
 
 ## 6. Cost and limits
 
-- Groq free tier (14,400 requests/day on the model used) comfortably covers 10-20 messages/day across 7 users; Gemini (now ~20 requests/day free) is not relied on for this feature.
+- Groq free tier covers 10-20 messages/day across 7 users, but its binding limit is tokens per MINUTE (gpt-oss-120b 8,000; llama-3.3-70b 12,000, prompt + answer combined). The prompt is therefore capped at the 35 most recent items with 150-character excerpts and no URLs (~5.7k tokens worst case). Long follow-up threads may exceed gpt-oss's cap and fall to llama-3.3. Gemini (~20 requests/day free) is a last resort only.
+- Revised 2026-10-21 after first live tests: original 120-item prompt exceeded Groq's per-minute cap, and a 1,800-token answer limit was consumed by model reasoning, truncating answers.
 - Supabase Edge Functions: 500K invocations/month free - not a realistic constraint at this scale.
 - No new paid service, no new account to create.
 

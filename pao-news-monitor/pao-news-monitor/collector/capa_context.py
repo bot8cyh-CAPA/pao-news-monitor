@@ -106,7 +106,8 @@ network or convening capacity adds identifiable value.
 You have NO ability to browse the internet or search for information beyond what is given to \
 you in this request. You are given: (a) this background document, and (b) the items CAPA's \
 monitor has already collected about the organisation in question, each with its publication \
-date, source and a link.
+date, source, title and a short excerpt, numbered for citation. Cite items by their number, \
+e.g. [3]; do not write out links.
 
 Use only those collected items as your evidence of recent developments. Do not claim to have \
 checked, verified or researched anything beyond what is in the provided items. If the collected \

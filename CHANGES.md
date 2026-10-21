@@ -2,6 +2,9 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-21 — Fix: Ask AI answers stopping mid-sentence
+Two causes. (1) The AI models "think" before writing, and that thinking used the same length allowance as the answer - so on big questions the allowance ran out partway through. The allowance is bigger now, the models are told to keep thinking brief, and if an answer is ever still cut short it now says so ("reply continue for the rest") instead of just stopping. (2) We were sending far more text than Groq's free tier accepts per minute (it caps question + answer combined), so Groq was likely refusing every question and the backup providers were answering. Ask AI now reads the 35 most recent items for the PAO with short excerpts - enough for its purpose, and small enough for Groq. A second Groq model was added as the next fallback, so Gemini's small daily quota is a last resort. Each answer now shows which AI model replied ("answered by …"). Needs a redeploy: `supabase functions deploy ask-ai --project-ref uipumuednycqjrkoacgm`.
+
 ## 2026-10-21 — Fix: Ask AI stuck on "Asking…" forever
 If one AI provider stalled, Ask AI waited on it indefinitely - one test sat on "Asking…" for 5+ minutes. Now each provider gets 30 seconds before the next one is tried, the whole attempt stops well within Supabase's time limit, and the page itself gives up after 2 minutes with a clear "try again" message. The main Groq model is also told to keep its behind-the-scenes "thinking" short, which makes it faster. Failures are now written to the function's log (Supabase → Edge Functions → ask-ai → Logs) so problems can be diagnosed. Needs a redeploy: `supabase functions deploy ask-ai --project-ref uipumuednycqjrkoacgm`.
 

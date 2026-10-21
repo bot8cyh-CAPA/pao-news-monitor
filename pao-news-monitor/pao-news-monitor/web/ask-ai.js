@@ -87,7 +87,9 @@
     $("#thread").innerHTML = messages.map((m) => {
       if (m.role === "user") return `<div class="ai-msg ai-user">${esc(m.content)}</div>`;
       if (m.role === "error") return `<div class="ai-msg ai-error">${esc(m.content)}</div>`;
-      const cited = m.cited_item_ids?.length ? `<p class="muted small">Cited ${m.cited_item_ids.length} collected item${m.cited_item_ids.length === 1 ? "" : "s"}.</p>` : "";
+      const n = m.cited_item_ids?.length || 0;
+      const meta = [n ? `Cited ${n} collected item${n === 1 ? "" : "s"}` : "", m.model ? `answered by ${m.model}` : ""].filter(Boolean).join(" · ");
+      const cited = meta ? `<p class="muted small">${esc(meta)}</p>` : "";
       return `<div class="ai-msg ai-assistant">${escMd(m.content)}${cited}</div>`;
     }).join("") || `<p class="empty-note">Ask a question about the selected PAO - e.g. "What's changed recently?" or "What are possible routes of collaboration?"</p>`;
     $("#ask-note").textContent = threadId ? "Replies continue this conversation. Start a new question to begin a fresh one." : "";

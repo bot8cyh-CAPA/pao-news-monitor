@@ -15,7 +15,16 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { COLLABORATION_GUIDELINES } from "./capa_context.ts";
 
 const MAX_TURNS = 15;        // user+assistant pairs per thread before the UI must start a new one
-const MAX_ITEMS = 120;       // most recent items fed in, to bound the prompt size
+// Prompt size matters: Groq's free tier caps tokens per minute, and an oversized prompt is refused
+// outright, pushing every question onto Gemini's much smaller daily quota. So: fewer items, short
+// excerpts, no URLs (citations are matched back to items by number, so the model doesn't need links).
+// Groq free tier (2026): gpt-oss-120b 8,000 tokens/min, llama-3.3-70b 12,000 tokens/min - prompt AND
+// answer combined. Guidelines (~2.5k tokens) + 35 short items (~3k) + answer must fit under those.
+const MAX_ITEMS = 35;        // most recent items fed in
+const SNIPPET_CHARS = 150;   // excerpt length per item
+// Answers need room: "thinking" models spend part of this budget reasoning before they write.
+// Per-provider overrides below keep Groq requests inside its per-minute token cap.
+const MAX_OUTPUT_TOKENS = 4000;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const CF_URL = (account: string) => `https://api.cloudflare.com/client/v4/accounts/${account}/ai/v1/chat/completions`;
@@ -25,9 +34,13 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 // brief/tagging chain in collector/ai.py which tries Gemini first.
 function chain(env: Record<string, string | undefined>) {
   const steps: { url: string; key: string; model: string; extra?: Record<string, unknown> }[] = [];
-  // gpt-oss "thinks" before answering; keep that short so it's fast and doesn't eat the answer's token budget
-  if (env.GROQ_API_KEY) steps.push({ url: GROQ_URL, key: env.GROQ_API_KEY, model: "openai/gpt-oss-120b", extra: { reasoning_effort: "low" } });
-  if (env.GEMINI_API_KEY) steps.push({ url: GEMINI_URL, key: env.GEMINI_API_KEY, model: "gemini-3.8-flash" });
+  if (env.GROQ_API_KEY) {
+    // gpt-oss "thinks" before answering; keep that short so it's fast and doesn't eat the answer's token budget
+    steps.push({ url: GROQ_URL, key: env.GROQ_API_KEY, model: "openai/gpt-oss-120b", extra: { reasoning_effort: "low", max_tokens: 2000 } });
+    // same key, bigger per-minute allowance, no thinking step - keeps Gemini's small daily quota as a last resort
+    steps.push({ url: GROQ_URL, key: env.GROQ_API_KEY, model: "llama-3.3-70b-versatile", extra: { max_tokens: 3000 } });
+  }
+  if (env.GEMINI_API_KEY) steps.push({ url: GEMINI_URL, key: env.GEMINI_API_KEY, model: "gemini-3.8-flash", extra: { reasoning_effort: "low" } });
   if (env.CF_ACCOUNT_ID && env.CF_AI_TOKEN)
     steps.push({ url: CF_URL(env.CF_ACCOUNT_ID), key: env.CF_AI_TOKEN, model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" });
   if (env.OPENROUTER_API_KEY) steps.push({ url: OPENROUTER_URL, key: env.OPENROUTER_API_KEY, model: "nvidia/nemotron-3-super-120b-a12b:free" });
@@ -51,7 +64,7 @@ async function askModel(env: Record<string, string | undefined>, messages: unkno
       const r = await fetch(step.url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${step.key}` },
-        body: JSON.stringify({ model: step.model, messages, temperature: 0.3, max_tokens: 1800, ...(step.extra || {}) }),
+        body: JSON.stringify({ model: step.model, messages, temperature: 0.3, max_tokens: MAX_OUTPUT_TOKENS, ...(step.extra || {}) }),
         signal: AbortSignal.timeout(Math.min(PER_PROVIDER_MS, left)),
       });
       if (!r.ok) {
@@ -61,8 +74,14 @@ async function askModel(env: Record<string, string | undefined>, messages: unkno
         continue;
       }
       const data = await r.json();
-      const text = data?.choices?.[0]?.message?.content;
-      if (typeof text === "string" && text.trim()) return { text, model: step.model };
+      const choice = data?.choices?.[0];
+      const text = choice?.message?.content;
+      if (typeof text === "string" && text.trim()) {
+        // ran out of room mid-answer: say so plainly rather than silently stopping mid-sentence
+        const cut = choice?.finish_reason === "length";
+        if (cut) console.error(`ask-ai: ${step.model} hit the output limit`);
+        return { text: cut ? `${text.trimEnd()}\n\n*(This answer was cut short. Reply "continue" for the rest.)*` : text, model: step.model };
+      }
       lastError = `${step.model} returned no usable text`;
       console.error(`ask-ai: ${lastError}`);
     } catch (e) {
@@ -137,7 +156,7 @@ async function handle(req: Request): Promise<Response> {
 
   const numbered = (items ?? []).map((it, i) => {
     const date = (it.published_at ?? it.first_seen_at ?? "").slice(0, 10);
-    return `[${i + 1}] ${date} | ${it.source}${it.kind && it.kind !== "news" ? ` (${it.kind})` : ""}${it.relevance ? ` | staff-tagged: ${it.relevance}` : ""} | ${it.title}\n    ${it.snippet ?? ""}\n    ${it.url}`;
+    return `[${i + 1}] ${date} | ${it.source}${it.kind && it.kind !== "news" ? ` (${it.kind})` : ""}${it.relevance ? ` | staff-tagged: ${it.relevance}` : ""} | ${it.title}${it.snippet ? `\n    ${short(it.snippet)}` : ""}`;
   });
 
   const system = `You are answering questions for CAPA staff about one specific organisation: \
@@ -194,6 +213,11 @@ ${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PA
   }
 
   return json({ thread_id: threadId, answer: answer.text, model: answer.model, cited_item_ids: [...new Set(citedIds)] });
+}
+
+function short(s: string) {
+  const t = s.replace(/\s+/g, " ").trim();
+  return t.length > SNIPPET_CHARS ? `${t.slice(0, SNIPPET_CHARS).replace(/\s+\S*$/, "")}…` : t;
 }
 
 function json(body: unknown, status = 200) {
