@@ -2,6 +2,9 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-22 — Fix: false "Leadership change" alerts from page-view counters
+SIA's council page shows a visit counter ("Hits: 933") right next to the Vice-President's title, so every visit to the page looked like a leadership change (933 → 947). The page watch now ignores page-view counters ("Hits", "Views", "Visitors", "Online now") and "Last updated …" stamps on leadership and contact pages - in both the old and new copy, so there's no final false alarm when this goes live. Real changes next to a counter are still caught. The existing false SIA alert can be tagged **No relevance** or **Removed**. Takes effect from the next daily collection; nothing to run.
+
 ## 2026-10-21 — Simpler tracker layout: CAPA logo, collapsible PAOs, filter dropdowns
 - **CAPA logo** at the top left (also on the Ask AI and Screenshots pages), with your account, Password and Sign out on the right.
 - **Second row:** Weekly brief, Screenshots (OCR), Ask AI, Import, Admin - and the search box on the right.

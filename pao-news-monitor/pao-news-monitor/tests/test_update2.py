@@ -241,3 +241,26 @@ def test_newsletter_and_article_type():
     assert websites.item_kind("https://x.org/newsletter/oct-2026", "news") == "articles"
     assert websites.item_kind("https://x.org/blog/ai-and-audit", "news") == "articles"
     assert websites.item_kind("https://x.org/library/report.pdf", "news") == "publications"
+
+
+SIA_V1 = """<html><body><h1>Council members</h1><p>Lauano Dennis Chan Tung, President</p>
+<p>Hits: 933</p><p>Vice President of the Council</p><p>Tagaloa Faafouina Su'a</p>
+<p>Contact: Level 2, Lotemau Centre, Apia</p><p>Visitors: 10,512</p></body></html>"""
+
+
+def test_page_watch_ignores_hit_counters():
+    """SIA's council page has a visit counter next to the VP's title - that alone is not a change."""
+    url = "https://www.icai.org/about-us/council"
+    v1 = {url: SIA_V1, "https://www.icai.org/contact-us": CONTACT_V1, "https://www.icai.org": PW_HOME}
+    first = _watch(v1, {})
+    assert not any("Hits" in p.get("snapshot", "") for p in first.pages)
+    prev = {(p["pao_id"], p["url"], p["kind"]): p for p in first.pages}
+    bumped = {**v1, url: SIA_V1.replace("933", "947").replace("10,512", "10,604")}
+    assert not _watch(bumped, prev).items
+    # a snapshot saved before this fix (still containing the counter) doesn't raise one last false alarm
+    old_style = {k: dict(v, snapshot=v["snapshot"].replace("Vice President of the Council", "Hits: 933 | Vice President of the Council", 1))
+                 for k, v in prev.items()}
+    assert not _watch(bumped, old_style).items
+    # a real change next to the counter is still caught
+    changed = {**v1, url: SIA_V1.replace("947", "950").replace("Tagaloa Faafouina Su'a", "New Person")}
+    assert [i.kind for i in _watch(changed, prev).items] == ["leadership"]

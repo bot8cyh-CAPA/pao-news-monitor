@@ -45,6 +45,28 @@ ADDRESS_RX = re.compile(
     r"[0-9]+号|路|街|楼|樓|대로|빌딩|đường|phường|quận|rue|boulevard",
     re.I)
 
+# ---- noise that changes on its own (never a real leadership/contact change) ----
+# Page-view counters ("Hits: 947", "Views 1,203", "1203 visitors"), "Last updated <date>" stamps and
+# "online now" counts. Stripped from every watched line - old and new copies alike - before comparing.
+_N = r"\d[\d,.\s]*"
+NOISE_RX = re.compile(
+    rf"^(?:(?:hits?|views?|page\s?views?|visitors?|visits?|reads?|online(?:\s+(?:now|users?))?|"
+    rf"访问量|浏览|點閱|瀏覽|조회수?|lượt xem)\s*[:：]?\s*{_N}"
+    rf"|{_N}\s*(?:hits?|views?|visitors?|visits?|reads?)"
+    rf"|(?:last\s+)?(?:updated|modified)(?:\s+on)?\s*[:：]?.*)$",
+    re.I)
+
+
+def denoise(line):
+    """Drop counter / last-updated pieces from a watched line ("Hits: 947 | VP | Name" -> "VP | Name")."""
+    parts = [p for p in line.split(" | ") if not NOISE_RX.match(p.strip())]
+    return " | ".join(parts)
+
+
+def denoise_all(lines):
+    return sorted({d for d in (denoise(x) for x in lines) if d})
+
+
 # ---- which pages to read ----
 LEADERSHIP_LINK = [
     (0, r"president|office[\s-]?bearers?|leadership|our leaders|chief executive|\bceo\b|executive director|"
@@ -81,7 +103,7 @@ def leadership_lines(html):
             continue
         block = [x for x in lines[max(0, i - 1): i + 2] if len(x) <= 90]
         out.append(" | ".join(block))
-    return sorted(set(out))
+    return denoise_all(out)
 
 
 def contact_lines(html):
@@ -90,9 +112,11 @@ def contact_lines(html):
     for line in lines:
         if len(line) > 200:
             continue
+        if NOISE_RX.match(line):
+            continue
         if EMAIL_RX.search(line) or PHONE_RX.search(line) or ADDRESS_RX.search(line):
             out.append(line)
-    return sorted(set(out))
+    return denoise_all(out)
 
 
 def _same_site(url, domain):
@@ -207,6 +231,8 @@ def collect(pao, prev_pages, fetcher=None, browser_mode=False):
             lines = extract(r.text)
             prev = prev_pages.get((pao.id, url, kind))
             old_lines = (prev or {}).get("snapshot", "").split("\n") if (prev or {}).get("snapshot") else []
+            # older snapshots were saved before counters were ignored - clean them the same way
+            old_lines = denoise_all(old_lines)
             row = {"pao_id": pao.id, "url": url, "kind": kind, "last_checked_at": iso(now),
                    "status": "ok", "message": f"{len(lines)} line(s) watched"}
             if not lines:
