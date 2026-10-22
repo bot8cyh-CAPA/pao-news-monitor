@@ -2,6 +2,13 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-22 — Ready for Supabase's 30 October permission change
+**Why:** from 30 Oct 2026 Supabase stops automatically giving the website and the collector access to newly created tables. Your current tables are unaffected - but moving to CAPA's main Supabase account means creating every table again, and a test on a fresh database showed that would have broken almost everything: the collector couldn't save anything and the website couldn't list PAOs or items.
+
+**What changed:** new `supabase/update-13.sql` spells out every table permission instead of relying on the automatic ones: signed-out visitors get nothing; signed-in staff get exactly what the website uses (and the existing role permissions still decide which rows they can see or change); the collector, brief writer and Ask AI get full access. It also removes a few broad automatic permissions the site never used (e.g. a "delete items" permission that was already blocked by row security). Tested on a brand-new database with no automatic permissions and on a copy of the current setup - both behave identically, and everything that should be blocked still is.
+
+**Needs:** run `supabase/update-13.sql` on the current project now (safe, changes nothing visible), and remember it's the last file to run on any new project - see README "Moving to a new Supabase project".
+
 ## 2026-10-22 — Fix: false "Leadership change" alerts from page-view counters
 SIA's council page shows a visit counter ("Hits: 933") right next to the Vice-President's title, so every visit to the page looked like a leadership change (933 → 947). The page watch now ignores page-view counters ("Hits", "Views", "Visitors", "Online now") and "Last updated …" stamps on leadership and contact pages - in both the old and new copy, so there's no final false alarm when this goes live. Real changes next to a counter are still caught. The existing false SIA alert can be tagged **No relevance** or **Removed**. Takes effect from the next daily collection; nothing to run.
 
