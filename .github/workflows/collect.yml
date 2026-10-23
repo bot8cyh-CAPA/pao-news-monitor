@@ -10,7 +10,7 @@ on:
         required: false
         default: ""
       sources:
-        description: "Only these sources (blank = all): website,google_news,newsapi,email,page_watch"
+        description: "Only these sources (blank = all): website,google_news,email,page_watch"
         required: false
         default: ""
 
@@ -38,7 +38,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           ONLY: ${{ github.event.inputs.only }}

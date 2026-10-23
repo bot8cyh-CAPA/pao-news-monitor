@@ -81,7 +81,6 @@ In your repo go to **Settings → Secrets and variables → Actions → New repo
 |---|---|
 | `SUPABASE_URL` | Project URL from step 2 |
 | `SUPABASE_SERVICE_KEY` | the **secret** / service_role key |
-| `NEWSAPI_KEY` | your NewsAPI key |
 | `GMAIL_ADDRESS` | `bot8cyh@gmail.com` |
 | `GMAIL_APP_PASSWORD` | the 16-letter Google app password |
 
