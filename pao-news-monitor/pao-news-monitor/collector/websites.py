@@ -200,15 +200,95 @@ def find_news_pages(soup, base_url, site_domain):
     return find_listing_pages(soup, base_url, site_domain)["news"]
 
 
+PATTERN_MIN_LINKS = 3        # a repeated block needs at least this many different article links
+PATTERN_HEADLINE_SHARE = 0.6  # ...and most of its link texts must look like headlines
+_TIME_ATTR = re.compile(r"(20\d\d)-(\d{1,2})-(\d{1,2})")
+
+
+def _signature(a):
+    """Where a link sits in the page: its own tag/classes plus three levels of parents.
+    Links in the same repeated list (news cards, rows of a table) share a signature."""
+    parts, node = [], a
+    for _ in range(4):
+        if node is None or node.name in (None, "body", "html", "[document]"):
+            break
+        classes = sorted(c for c in (node.get("class") or []) if not re.search(r"\d", c))
+        parts.append(node.name + ("." + ".".join(classes) if classes else ""))
+        node = node.parent
+    return "/".join(parts)
+
+
+def _headline_like(title):
+    if _CJK.search(title):
+        return len(title) >= 6
+    return len(title) >= 20 and len(title.split()) >= 3
+
+
+def _article_like_url(url):
+    """Deeper than a menu link: /section/item, a long slug, or a PDF."""
+    path = urlsplit(url).path.rstrip("/")
+    segments = [s for s in path.split("/") if s]
+    return path.lower().endswith(".pdf") or len(segments) >= 2 or (segments and len(segments[-1]) >= 15)
+
+
+def pattern_links(soup, page_url, site_domain):
+    """Adaptive matching: find the page's repeated list of articles by its structure,
+    so links count even when their address has no news-like hint (e.g. /stories/new-cpd-rules).
+    Works on whatever layout the page has today, so a redesign doesn't need new settings.
+    Returns the normalised addresses of links in those lists."""
+    groups = {}
+    page_key = normalize_url(page_url)
+    for a in soup.find_all("a", href=True):
+        url = urljoin(page_url, a["href"])
+        if not url.startswith("http") or SKIP_RX.search(url) or SKIP_EXT.search(url):
+            continue
+        if not (_same_site(url, site_domain) or url.lower().split("?")[0].endswith(".pdf")):
+            continue
+        key = normalize_url(url)
+        if key == page_key:
+            continue
+        title = clean(a.get_text(" ")) or clean(a.get("title"))
+        groups.setdefault(_signature(a), {}).setdefault(key, (url, title))
+    keep = set()
+    for links in groups.values():
+        if len(links) < PATTERN_MIN_LINKS:
+            continue
+        values = list(links.values())
+        headlines = sum(1 for _, t in values if t and _headline_like(t))
+        deep = sum(1 for u, _ in values if _article_like_url(u))
+        if headlines / len(values) >= PATTERN_HEADLINE_SHARE and deep / len(values) >= PATTERN_HEADLINE_SHARE:
+            keep.update(links)
+    return keep
+
+
+def _link_date(a, url):
+    """Date for a link: a <time> tag in its own list item/card first, then any date text nearby, then the address."""
+    ctx = a.find_parent(["li", "tr", "article", "div"]) or a
+    times = ctx.find_all("time") if hasattr(ctx, "find_all") else []
+    if len(times) == 1:  # only trust it if it clearly belongs to this one item
+        m = _TIME_ATTR.search(times[0].get("datetime") or "")
+        if m:
+            try:
+                return datetime(*map(int, m.groups()), tzinfo=timezone.utc)
+            except ValueError:
+                pass
+        d = guess_date(clean(times[0].get_text(" ")))
+        if d:
+            return d
+    return guess_date(clean(ctx.get_text(" "), 400)) or guess_date(url)
+
+
 def extract_links(html, page_url, pao, site_domain, selector="", relaxed=False, kind="news"):
     """Collect article-looking links. Strict mode wants a news-like URL
-    (dates, ids, 'news', .pdf...). Relaxed mode drops that and relies on
-    headline-like link text instead - used when strict finds almost nothing."""
+    (dates, ids, 'news', .pdf...) or a link in the page's repeated article list
+    (pattern matching). Relaxed mode drops both and relies on headline-like link
+    text instead - used when strict finds almost nothing."""
     soup = BeautifulSoup(html, "lxml")
     for bad in soup(["script", "style", "noscript", "header", "footer", "nav"]):
         if not selector:
             bad.decompose()
     anchors = soup.select(selector) if selector else soup.find_all("a", href=True)
+    in_pattern = pattern_links(soup, page_url, site_domain) if not selector and not relaxed else set()
     items, seen = [], set()
     for a in anchors:
         if a.name != "a":
@@ -225,19 +305,20 @@ def extract_links(html, page_url, pao, site_domain, selector="", relaxed=False, 
         title = clean(a.get_text(" ")) or clean(a.get("title"))
         if not selector and not _title_ok(title, relaxed):
             continue
-        if not selector and not relaxed and not ARTICLE_HINT.search(url) and not _CJK.search(title):
-            continue
         key = normalize_url(url)
+        via = ""
+        if not selector and not relaxed and not ARTICLE_HINT.search(url) and not _CJK.search(title):
+            if key not in in_pattern:
+                continue
+            via = "pattern"
         if key in seen or key == normalize_url(page_url):
             continue
         seen.add(key)
-        # look for a date in the link's surroundings (list item / card)
-        ctx = a.find_parent(["li", "tr", "article", "div"]) or a
-        date = guess_date(clean(ctx.get_text(" "), 400)) or guess_date(url)
+        date = _link_date(a, url)
         items.append(Item(id=make_id(pao.id, SOURCE, key), pao_id=pao.id, source=SOURCE,
                           title=title[:300] or url, url=url, published_at=iso(date),
                           source_name=urlsplit(page_url).netloc, language=pao.language,
-                          kind=item_kind(url, kind), found_on=page_url))
+                          kind=item_kind(url, kind), found_on=page_url, via=via))
         if len(items) >= MAX_LINKS_PER_PAGE:
             break
     return items
@@ -342,7 +423,8 @@ def collect(pao, fetcher=None, browser_mode=False):
             out = {}
             for url, html, kind in fetched:
                 for it in extract_links(html, url, pao, site_domain, pao.link_selector, relaxed, kind):
-                    out.setdefault(it.id, it)
+                    if it.id not in out or (out[it.id].via == "pattern" and not it.via):
+                        out[it.id] = it   # prefer the copy found the ordinary way
             return out
 
         strict = gather(relaxed=False)
@@ -355,6 +437,14 @@ def collect(pao, fetcher=None, browser_mode=False):
             found.setdefault(k, it)
         res.items = list(found.values())
         res.pages = [{"pao_id": pao.id, "url": url, "kind": "listing:" + kind} for url, _, kind in fetched]
+        # remember which pages pattern matching has already read, so its first finds there are
+        # saved as "first scan" (old articles) rather than shown as new - see main.apply_baseline
+        by_pattern = [it for it in res.items if it.via == "pattern"]
+        kind_of_page = {url: kind for url, _, kind in fetched}
+        res.pages += [{"pao_id": pao.id, "url": u, "kind": "pattern:" + kind_of_page.get(u, "news")}
+                      for u in sorted({it.found_on for it in by_pattern})]
+        if by_pattern:
+            notes.append(f"{len(by_pattern)} link(s) found by page-pattern matching")
 
         if not res.items:
             if visible_text < 800:

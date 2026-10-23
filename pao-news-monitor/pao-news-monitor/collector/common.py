@@ -228,8 +228,9 @@ class Item:
     is_baseline: bool = False
     kind: str = "news"     # news | events | publications | leadership | contact
     found_on: str = ""     # listing page the link was found on (not saved)
+    via: str = ""          # "pattern" if a website link was picked up only by page-pattern matching (not saved)
 
-    NOT_SAVED = ("found_on",)
+    NOT_SAVED = ("found_on", "via")
 
     def row(self):
         return {k: getattr(self, k) for k in self.__dataclass_fields__ if k not in self.NOT_SAVED}

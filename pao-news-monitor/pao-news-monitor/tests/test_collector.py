@@ -206,3 +206,85 @@ def test_full_run_baseline_then_new(monkeypatch, tmp_path):
     assert len(new) == 1 and new[0]["is_baseline"] is False
     assert s2["new"] == 1 and data["health"]["icai::website"]["items_new"] == 1
     assert data["health"]["icai::google_news"]["items_new"] == 0
+
+
+# ---- page-pattern matching (adaptive link detection) ----
+# A site whose article addresses have no news-like hint (no "news", dates or ids), with a
+# repeated card list, a plain menu-like block of short links, and one <time> tag per card.
+SLUG_HOME = """<html><body>
+<div class="quick"><ul class="links">
+ <li><a href="/join">Become a member</a></li><li><a href="/member-benefits">Member benefits</a></li>
+ <li><a href="/exams">Exams</a></li><li><a href="/shop">Shop</a></li>
+</ul></div>
+<section class="latest"><div class="cards">
+ <div class="card"><time datetime="2026-10-20T09:00:00+08:00">20 Oct</time>
+   <h3><a href="/stories/institute-releases-guidance-on-sustainability-reporting">Institute releases guidance on sustainability reporting</a></h3></div>
+ <div class="card"><time datetime="2026-10-14">14 Oct</time>
+   <h3><a href="/stories/council-appoints-chief-executive-officer">Council appoints a new chief executive officer</a></h3></div>
+ <div class="card"><time datetime="2026-10-02">2 Oct</time>
+   <h3><a href="/stories/members-invited-to-comment-on-ethics-code">Members invited to comment on revised ethics code</a></h3></div>
+</div></section></body></html>"""
+
+
+def test_pattern_matching_finds_slug_articles(monkeypatch):
+    p = pao(id="slug", website="https://slug.org.example")
+    monkeypatch.setattr(websites, "fetch", fake_fetch({"https://slug.org.example": SLUG_HOME}))
+    res = websites.collect(p)
+    titles = {i.title for i in res.items}
+    assert titles == {"Institute releases guidance on sustainability reporting",
+                      "Council appoints a new chief executive officer",
+                      "Members invited to comment on revised ethics code"}
+    assert all(i.via == "pattern" for i in res.items)
+    assert "loose link matching" not in res.message and "page-pattern matching" in res.message
+    dates = sorted(i.published_at[:10] for i in res.items)
+    assert dates == ["2026-10-02", "2026-10-14", "2026-10-20"]
+    assert any(pg["kind"] == "pattern:news" for pg in res.pages)
+
+
+def test_pattern_matching_ignores_menu_blocks():
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(SLUG_HOME, "lxml")
+    keep = websites.pattern_links(soup, "https://slug.org.example/", "slug.org.example")
+    assert keep and not any(k.endswith(("/join", "/member-benefits", "/exams", "/shop")) for k in keep)
+
+
+def test_pattern_links_not_flagged_when_hint_present(monkeypatch):
+    # the ordinary rules already catch these, so they keep behaving exactly as before
+    monkeypatch.setattr(websites, "fetch", fake_fetch({"https://www.icai.org/news": NEWS, "https://www.icai.org": HOME}))
+    res = websites.collect(pao())
+    assert not any(i.via == "pattern" for i in res.items)
+    assert not any(pg["kind"].startswith("pattern:") for pg in res.pages)
+
+
+def test_pattern_first_finds_saved_as_first_scan(monkeypatch, tmp_path):
+    """Day 1 of pattern matching on an existing site: its older articles are hidden as first scan.
+    Day 2: a genuinely new article found the same way shows up as new."""
+    from collector import store as store_mod
+    monkeypatch.setattr(store_mod, "ROOT", tmp_path)
+    p = pao(id="slug", website="https://slug.org.example", search_terms="")
+    monkeypatch.setattr(main, "load_paos", lambda: [p])
+    monkeypatch.delenv("GMAIL_ADDRESS", raising=False)
+    old_home = SLUG_HOME.replace('<section class="latest">', '<section class="latest"><a href="/press/2026/old-one">Old style news link from last year here</a>')
+    pages = {"https://slug.org.example": old_home}
+    monkeypatch.setattr(websites, "fetch", fake_fetch(pages))
+    from collector import pagewatch
+    monkeypatch.setattr(pagewatch, "fetch", fake_fetch(pages))
+    main.run(dry_run=True, sources=["website"])          # first scan of the site: everything baseline
+    # simulate a site that was already tracked before pattern matching existed
+    data = json.loads((tmp_path / "data" / "local.json").read_text())
+    data["items"] = {k: v for k, v in data["items"].items() if "old-one" in v["url"]}
+    data["pages"] = {k: v for k, v in data["pages"].items() if "::pattern:" not in k}
+    (tmp_path / "data" / "local.json").write_text(json.dumps(data))
+
+    main.run(dry_run=True, sources=["website"])
+    data = json.loads((tmp_path / "data" / "local.json").read_text())
+    stories = [i for i in data["items"].values() if "/stories/" in i["url"]]
+    assert len(stories) == 3 and all(i["is_baseline"] for i in stories)
+
+    pages["https://slug.org.example"] = old_home.replace(
+        '<div class="cards">', '<div class="cards"><div class="card"><time datetime="2026-10-22">22 Oct</time>'
+        '<h3><a href="/stories/annual-conference-programme-announced">Annual conference programme announced for members</a></h3></div>', 1)
+    s = main.run(dry_run=True, sources=["website"])
+    data = json.loads((tmp_path / "data" / "local.json").read_text())
+    fresh = [i for i in data["items"].values() if "annual-conference" in i["url"]]
+    assert len(fresh) == 1 and fresh[0]["is_baseline"] is False and s["new"] == 1

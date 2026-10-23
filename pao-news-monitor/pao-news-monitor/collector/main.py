@@ -106,16 +106,25 @@ def apply_baseline(res, health, store, known_pages=None):
         res.message = (f"Most links ({len(new)}/{len(res.items)}) are new - the site was probably redesigned; "
                        "new links saved as baseline. ") + res.message
         return
+    listing = [p for p in res.pages if p["kind"].startswith("listing:")]
     known = {url for (pid, url, kind) in (known_pages or {}) if pid == res.pao_id and kind.startswith("listing:")}
     if known:
-        fresh = {p["url"] for p in res.pages} - known
+        fresh = {p["url"] for p in listing} - known
     else:  # first run with page tracking: news pages + homepage were already being scanned before
-        fresh = {p["url"] for p in res.pages if p["kind"] != "listing:news"}
+        fresh = {p["url"] for p in listing if p["kind"] != "listing:news"}
     hidden = [it for it in new if it.found_on in fresh]
     for it in hidden:
         it.is_baseline = True
     if hidden:
         res.message = f"{len(hidden)} link(s) from newly scanned page(s) saved as first scan. " + res.message
+    # page-pattern matching reading a page for the first time picks up its older articles too
+    pattern_known = {url for (pid, url, kind) in (known_pages or {}) if pid == res.pao_id and kind.startswith("pattern:")}
+    first_pattern = [it for it in new if it.via == "pattern" and not it.is_baseline and it.found_on not in pattern_known]
+    for it in first_pattern:
+        it.is_baseline = True
+    if first_pattern:
+        res.message = (f"{len(first_pattern)} older link(s) found by the new page-pattern matching saved as first scan. "
+                       + res.message)
 
 
 def health_row(res, prev, new_count, now):
