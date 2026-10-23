@@ -2,6 +2,20 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-23 — Smarter website scanning (page-pattern matching)
+**Why:** the website scanner only trusted links whose address *looked* like news (a date, an ID number, or words like "news" or "press"). Many PAO sites use plain addresses like `/stories/council-appoints-new-ceo`, so their articles were missed, or the scanner fell back to "loose matching" and picked up junk links.
+
+**What changed** (idea borrowed from the Scrapling library, written ourselves so there's no new add-on to maintain):
+- **Spots the page's list of articles by its layout.** News pages show articles as a repeated list of cards or rows. The scanner now finds that repeated block, and takes its links even when the address has no news-like hint. Short menu links (Join, Exams, Shop) are ignored.
+- **Adapts to redesigns.** It looks at the layout fresh on every run, so when a PAO redesigns its site the scanner finds the new list on its own instead of needing a new setting.
+- **Better dates:** if an article card has a proper date tag, that date is used.
+- **No flood of old articles:** the first time pattern matching reads a page, the older articles it finds there are saved as **first scan** (hidden by default), exactly like a newly found page. From the next day, new articles found this way appear as normal.
+- Applies to every PAO automatically. Sites with a `link_selector` set keep using it. Anti-bot features from Scrapling were deliberately left out.
+
+**Watch for:** a few non-news links that sit in a repeated block with long titles (e.g. a grid of "Become a member today" boxes) might appear. Tag them **No relevance**. The run summary now says "N link(s) found by page-pattern matching" for each site where it helped.
+
+**Needs:** nothing to run. Takes effect from the next daily collection.
+
 ## 2026-10-23 — NewsAPI removed from the daily run
 **Why:** NewsAPI's free plan doesn't allow production use, and its results were arriving later than Google News. Google News is now the only news-search source.
 
