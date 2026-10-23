@@ -17,7 +17,7 @@ from . import browser, email_inbox, news_search, pagewatch, websites
 from .common import PAO, iso, load_paos, log, now_utc
 from .store import get_store
 
-ALL_SOURCES = ["website", "google_news", "newsapi", "email", "page_watch"]
+ALL_SOURCES = ["website", "google_news", "email", "page_watch"]
 LAYOUT_CHANGE_SHARE = 0.7   # if >70% of a site's links are suddenly new, the site was probably redesigned
 LAYOUT_CHANGE_MIN = 10
 WARN_WORDS = ("redirects", "certificate", "no links", "no article links", "JavaScript", "failed", "error",
@@ -188,8 +188,6 @@ def run(only=None, sources=None, dry_run=False, workers=8):
         sys.exit(f"No active PAO with id in {sorted(only)} - check the Members screen")
     health = store.load_health()
     prev_pages = {} if problems else store.load_pages()
-    newsapi = news_search.NewsAPI()
-    lock = threading.Lock()
     results = []
 
     def one(pao):
@@ -198,9 +196,6 @@ def run(only=None, sources=None, dry_run=False, workers=8):
             out.append(websites.collect(pao))
         if "google_news" in sources:
             out.append(news_search.collect_google(pao))
-        if "newsapi" in sources:
-            with lock:
-                out.append(newsapi.collect(pao))
         if "page_watch" in sources:
             out.append(pagewatch.collect(pao, prev_pages))
         return out

@@ -2,6 +2,13 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-23 — NewsAPI removed from the daily run
+**Why:** NewsAPI's free plan doesn't allow production use, and its results were arriving later than Google News. Google News is now the only news-search source.
+
+**What changed:** the daily collection no longer calls NewsAPI, and the `NEWSAPI_KEY` setting was removed from the scheduled job. The NewsAPI code is still in the repository but nothing runs it. Tests still pass.
+
+**Needs:** nothing to run. You can delete the `NEWSAPI_KEY` secret in GitHub once this is merged.
+
 ## 2026-10-22 — Ready for Supabase's 30 October permission change
 **Why:** from 30 Oct 2026 Supabase stops automatically giving the website and the collector access to newly created tables. Your current tables are unaffected - but moving to CAPA's main Supabase account means creating every table again, and a test on a fresh database showed that would have broken almost everything: the collector couldn't save anything and the website couldn't list PAOs or items.
 
