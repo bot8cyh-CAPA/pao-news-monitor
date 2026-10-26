@@ -2,6 +2,13 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-26 — Fix: "Open for comment" said "None this week" with a consultation waiting
+**What happened:** the ISSB nature-related disclosures consultation (IFRS email, 22 Oct) was tagged **Opportunity to comment** and **High**, and it was sent to the AI with a note to put it under Open for comment. With 70 items in the list, the AI missed it and wrote "None this week."
+
+**What changed:** the brief no longer relies on the AI for this. After the AI writes the brief, the code checks that every item tagged Opportunity to comment is cited under **Open for comment**, and adds a plain bullet (PAO, one-line summary, citation) for any it left out. If the AI covered them all, nothing changes.
+
+**Needs:** nothing to run. Applies from the next brief. This week's draft still needs the ISSB item added by hand (or ask for the brief to be regenerated).
+
 ## 2026-10-23 — Smarter website scanning (page-pattern matching)
 **Why:** the website scanner only trusted links whose address *looked* like news (a date, an ID number, or words like "news" or "press"). Many PAO sites use plain addresses like `/stories/council-appoints-new-ceo`, so their articles were missed, or the scanner fell back to "loose matching" and picked up junk links.
 
