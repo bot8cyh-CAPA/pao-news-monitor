@@ -226,3 +226,23 @@ def test_removed_items_stay_out_of_the_brief(tmp_path):
     store.data["items"]["a"]["removed_at"] = "2026-10-17T00:00:00+00:00"
     got = {i["id"] for i in brief.gather(store, NOW - __import__("datetime").timedelta(days=7))}
     assert "a" not in got and "b" in got
+
+
+def test_open_for_comment_never_dropped():
+    """The AI wrote "None this week" while a staff-marked comment item was in the list: code adds it back."""
+    chosen = [{"id": "x", "pao_id": "ifrs", "title": "IFRS Foundation news alert", "kind": "news"},
+              {"id": "y", "pao_id": "ifrs", "title": "IFRS Foundation news alert", "kind": "comment",
+               "ai_summary": "ISSB consults on its proposals for nature-related disclosures."}]
+    paos = {"ifrs": {"abbr": "IFRS"}}
+    body = "## Open for comment\nNone this week.\n\n## Key developments\nNo key developments this week."
+    out = brief.ensure_comment_section(body, chosen, paos)
+    sec = out.split("## Key developments")[0]
+    assert "ISSB consults" in sec and "[2]" in sec and "None this week" not in sec
+    assert "## Key developments" in out
+    # already covered by the AI: left alone
+    ok = "## Open for comment\n- ISSB nature consultation [2]\n\n## Key developments\nx"
+    assert brief.ensure_comment_section(ok, chosen, paos) == ok
+    # section missing entirely: added at the top
+    assert brief.ensure_comment_section("## Key developments\nx", chosen, paos).startswith("## Open for comment")
+    # nothing marked for comment: unchanged
+    assert brief.ensure_comment_section(body, chosen[:1], paos) == body

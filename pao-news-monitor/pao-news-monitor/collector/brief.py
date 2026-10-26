@@ -244,6 +244,37 @@ def header(start, end, models, ai):
     return f"# CAPA weekly intelligence brief\n**{period}**\n\n{note}\n"
 
 
+_SECTION_RX = re.compile(r"^##\s*Open for comment\s*$", re.I | re.M)
+
+
+def ensure_comment_section(body, chosen, paos):
+    """Every item staff marked "Opportunity to comment" must appear under Open for comment.
+    The AI sometimes misses one in a long list (it wrote "None this week" with one waiting), so code
+    checks the section's citations and adds a plain bullet for anything left out."""
+    wanted = [(n, it) for n, it in enumerate(chosen, 1) if it.get("kind") == "comment"]
+    if not wanted:
+        return body
+    m = _SECTION_RX.search(body)
+    if not m:
+        body = "## Open for comment\nNone this week.\n\n" + body
+        m = _SECTION_RX.search(body)
+    nxt = re.search(r"^##\s", body[m.end():], re.M)
+    end = m.end() + nxt.start() if nxt else len(body)
+    section = body[m.end():end]
+    cited = {int(x) for x in re.findall(r"\[(\d+)\]", section)}
+    missing = [(n, it) for n, it in wanted if n not in cited]
+    if not missing:
+        return body
+    bullets = []
+    for n, it in missing:
+        p = paos.get(it["pao_id"], {})
+        name = p.get("abbr") or p.get("name") or it["pao_id"]
+        bullets.append(f"- **{name}**: {it.get('ai_summary') or clean(it['title'], 220)} [{n}]")
+    kept = re.sub(r"^\s*None this week\.?\s*$", "", section.strip(), flags=re.I | re.M).strip()
+    new_section = "\n" + "\n".join(x for x in [kept, "\n".join(bullets)] if x) + "\n\n"
+    return body[:m.end()] + new_section + body[end:].lstrip("\n")
+
+
 def strip_model_extras(text):
     """Drop any title / sources list the model added itself (code adds the real ones)."""
     text = re.sub(r"^\s*#\s+.*\n", "", text.strip(), count=1) if text.strip().startswith("# ") else text.strip()
@@ -274,7 +305,7 @@ def build(store, days=7, chain=None, now=None):
                 + "\n".join(lines))
         try:
             text, _ = chain.ask("smart", BRIEF_SYSTEM, user, max_tokens=12000, temperature=0.3)
-            body, ai = strip_model_extras(text), True
+            body, ai = ensure_comment_section(strip_model_extras(text), chosen, paos), True
         except AIUnavailable as e:
             notes.append(f"writing stopped: {e}")
     if body is None:
