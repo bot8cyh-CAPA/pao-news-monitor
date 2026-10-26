@@ -2,6 +2,20 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-26 — Ask AI: "Whole region" questions, and cleaner article picking
+**Whole region (all PAOs):** a new first option in Ask AI's picker. Ask things like "how are PAOs approaching AI adoption, and what concerns are they raising?" and it answers across the whole network, naming which PAO each point comes from (the Sources list shows the PAO too).
+- How it picks articles: from everything collected in the last 12 months, it finds items matching your question (using the themes the brief already tags, like "AI & digitalisation", plus words from your question), most important first, **at most 4 per PAO** so one busy PAO can't drown out the rest, 30 in total.
+- A vague question ("what's going on across the region?") gets the most important recent items instead.
+- Follow-up questions keep the same set of articles, so "tell me more about [3]" still means the same article.
+- Limits, said plainly in the answer: it only knows what the monitor has collected, so it's a sample of CAPA's network, not the whole region, and it knows nothing about countries outside the network. No web search.
+
+**Cleaner picking for every Ask AI question (single PAO too):**
+- The same story collected twice now counts once, so it no longer uses up two of the 30 slots.
+- Items the AI rated Low / No (and nobody has reviewed) are left out, the same as staff-tagged Low / No.
+- Old first-scan links are left out.
+
+**Needs:** (1) run `supabase/update-15.sql` (lets whole-region conversations take follow-up questions; without it, each whole-region question starts fresh), (2) redeploy Ask AI from PowerShell - same command as before.
+
 ## 2026-10-26 — AI-suggested relevance (you still decide) + calendar date filter
 **AI suggests a relevance label for every new item** (from your Automated Article Relevance Framework v2.0):
 - After each daily collection, the AI reads each new item and suggests **High / Medium / Low / No relevance** with a one-sentence reason. It judges substance against CAPA's remit and the member/stakeholder list, not keyword matches.

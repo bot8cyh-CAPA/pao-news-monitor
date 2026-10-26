@@ -64,3 +64,10 @@ Unlike the SQL updates (pasted into Supabase's SQL editor) and the web page (aut
 - The daily collector, brief generation and sending are untouched - same cron jobs, same logic.
 - No member data moves anywhere new; the function reads items already in Supabase.
 - No change to who can sign in or what Team/Viewer can already do, beyond the new `ask_ai` permission being available to tick.
+
+## 9. Addendum (2026-10-26): whole-region mode and item clean-up
+- **Whole region (all PAOs):** the page sends `pao_id = "_region"`. Items come from all PAOs (last 12 months), scored against the question by the brief's theme tags (`ai_themes`) plus keyword overlap, High/Medium first, max 4 per PAO, max 30 total (same token budget as single-PAO mode). A question matching nothing falls back to the most important recent items. Each item line carries the PAO abbreviation; sources list shows it too.
+- **Stable citations on follow-ups:** the first user message of a region thread stores `item_ids`; follow-ups reuse that exact numbered list so [n] keeps meaning the same article. Region threads are saved with `pao_id` null (`update-15.sql` drops NOT NULL; without it, region answers work but don't continue).
+- **Cleaner item pool (both modes):** first-scan links excluded; Low/No by staff *or* by the AI suggestion when unreviewed (`update-14.sql`, falls back to staff-only labels); repeats with the same headline per PAO collapsed (reviewed copy kept).
+- Selection logic lives in `supabase/functions/ask-ai/select.ts` (no Deno APIs) so it can be tested with Node.
+

@@ -1,4 +1,4 @@
-/* Ask AI - real-time Q&A about one PAO, via a Supabase Edge Function (see supabase/functions/ask-ai). */
+/* Ask AI - real-time Q&A about one PAO or the whole region, via a Supabase Edge Function (see supabase/functions/ask-ai). */
 (() => {
   "use strict";
   const CFG = window.PAO_CONFIG || {};
@@ -37,15 +37,17 @@
     const { data: paoRows, error: paoErr } = await db.from("paos").select("id,name,abbr,jurisdiction,grp").eq("active", true).order("sort_order");
     if (paoErr) { $("#not-set-up").hidden = false; return; }
     paos = paoRows || [];
-    $("#pao").innerHTML = paos.map((p) => `<option value="${esc(p.id)}">${esc(p.abbr || p.name)}${p.jurisdiction ? ` (${esc(p.jurisdiction)})` : ""}</option>`).join("");
+    $("#pao").innerHTML = `<option value="_region">Whole region (all PAOs)</option>` + paos.map((p) => `<option value="${esc(p.id)}">${esc(p.abbr || p.name)}${p.jurisdiction ? ` (${esc(p.jurisdiction)})` : ""}</option>`).join("");
 
+    $("#pao").value = paos[0]?.id || "_region";   // a single PAO first, as before
+    placeholder();
     $("#ask-ai").hidden = false;
     wire();
   }
 
   function wire() {
     $("#new-chat").addEventListener("click", () => { threadId = null; messages = []; render(); });
-    $("#pao").addEventListener("change", () => { threadId = null; messages = []; render(); });
+    $("#pao").addEventListener("change", () => { threadId = null; messages = []; placeholder(); render(); });
     $("#ask-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       if (sending) return;
@@ -102,12 +104,18 @@
   const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "");
 
   // Sources list under an answer: every article the AI cited, numbered as in the text.
+  function placeholder() {
+    $("#question").placeholder = $("#pao").value === "_region"
+      ? "e.g. How are PAOs across the region approaching AI adoption, and what concerns are they raising?"
+      : "e.g. What are possible routes of collaboration with this PAO?";
+  }
+
   function sourcesList(sources) {
     if (!sources?.length) return "";
     const li = sources.map((x) => {
       const url = safeUrl(x.url);
       const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(x.title || url)}</a>` : esc(x.title || "(untitled)");
-      return `<li value="${Number(x.n)}">${title} <span class="muted small">${esc([x.source, x.date].filter(Boolean).join(" · "))}</span></li>`;
+      return `<li value="${Number(x.n)}">${title} <span class="muted small">${esc([x.pao, x.source, x.date].filter(Boolean).join(" · "))}</span></li>`;
     }).join("");
     return `<details class="ai-sources"><summary>Sources (${sources.length})</summary><ol>${li}</ol></details>`;
   }
