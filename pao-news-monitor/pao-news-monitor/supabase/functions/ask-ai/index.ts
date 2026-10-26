@@ -1,4 +1,4 @@
-// Ask AI - real-time Q&A about one PAO, grounded only in its collected items.
+// Ask AI - real-time Q&A about one PAO (or the whole region), grounded only in collected items.
 // Deploy: supabase functions deploy ask-ai   (see README "Ask AI setup")
 // Secrets needed (set once): supabase secrets set GROQ_API_KEY=... GEMINI_API_KEY=... (etc.)
 //
@@ -13,7 +13,9 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { COLLABORATION_GUIDELINES } from "./capa_context.ts";
+import { dedupe, type Item, pickForTopic, rank, when } from "./select.ts";
 
+const REGION = "_region";   // pao_id the page sends for "Whole region (all PAOs)"
 const MAX_TURNS = 15;        // user+assistant pairs per thread before the UI must start a new one
 // Prompt size matters: Groq's free tier caps tokens per minute, and an oversized prompt is refused
 // outright, pushing every question onto Gemini's much smaller daily quota. So: fewer items, short
@@ -135,47 +137,91 @@ async function handle(req: Request): Promise<Response> {
   // (writes are function-only, see update-11.sql: table grants SELECT only to authenticated).
   const svc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  const { data: pao } = await svc.from("paos").select("id,name,abbr,jurisdiction,grp,website").eq("id", pao_id).single();
-  if (!pao) return json({ error: "Unknown PAO" }, 404);
+  const region = pao_id === REGION;
+  const { data: pao } = region
+    ? { data: null }
+    : await svc.from("paos").select("id,name,abbr,jurisdiction,grp,website").eq("id", pao_id).single();
+  if (!region && !pao) return json({ error: "Unknown PAO" }, 404);
 
-  // Which items the AI sees: this PAO's items, minus anything Removed or tagged Low / No relevance
-  // by staff. Staff High items come first, then Medium, then untagged; within each, newest first by
-  // PUBLISH date (falling back to the date the monitor found it). We pull a wider pool from the
-  // database (cheap), keep the best MAX_ITEMS (what costs AI tokens), then list those newest first.
-  const { data: pool } = await svc
-    .from("items")
-    .select("id,title,snippet,url,published_at,first_seen_at,source,kind,relevance,category")
-    .eq("pao_id", pao_id)
-    .is("removed_at", null)
-    .or("relevance.is.null,relevance.in.(high,medium)")
-    .order("first_seen_at", { ascending: false })
-    .limit(300);
-  const when = (it: { published_at?: string | null; first_seen_at?: string | null }) => it.published_at || it.first_seen_at || "";
-  const rank = (it: { relevance?: string | null }) => (it.relevance === "high" ? 0 : it.relevance === "medium" ? 1 : 2);
-  const items = (pool ?? [])
-    .sort((a, b) => rank(a) - rank(b) || when(b).localeCompare(when(a)))
-    .slice(0, MAX_ITEMS)
-    .sort((a, b) => when(b).localeCompare(when(a)));
-
-  let thread: { id: number; messages: { role: string; content: string; cited_item_ids?: string[]; at: string }[] } | null = null;
+  type Thread = { id: number; messages: { role: string; content: string; cited_item_ids?: string[]; item_ids?: string[]; at: string }[] };
+  let thread: Thread | null = null;
   if (body.thread_id) {
     const { data } = await svc.from("ask_ai_threads").select("id,messages,ended_at").eq("id", body.thread_id).single();
-    if (data && !data.ended_at) thread = data as typeof thread;
+    if (data && !data.ended_at) thread = data as Thread;
   }
   const priorTurns = thread ? thread.messages.filter((m) => m.role !== "system").length / 2 : 0;
   if (priorTurns >= MAX_TURNS) return json({ error: "This conversation has reached its limit - please start a new one." }, 400);
 
+  // Which items the AI sees. Left out: Removed items, first-scan links (old), and anything rated
+  // Low / No relevance - by staff, or by the AI suggestion when staff haven't reviewed it
+  // (update-14.sql; older databases fall back to staff labels only). Repeats of the same story
+  // (same headline) count once. High first, then Medium, then unrated; newest first within each.
+  const COLS = "id,pao_id,title,snippet,url,published_at,first_seen_at,source,kind,relevance,category";
+  const poolQuery = async (withAi: boolean) => {
+    let q = svc.from("items").select(COLS + (withAi ? ",ai_relevance,ai_summary,ai_themes" : ""))
+      .is("removed_at", null).not("is_baseline", "is", true)
+      .or(withAi
+        ? "relevance.in.(high,medium),and(relevance.is.null,or(ai_relevance.is.null,ai_relevance.in.(high,medium)))"
+        : "relevance.is.null,relevance.in.(high,medium)")
+      .order("first_seen_at", { ascending: false });
+    q = region ? q.gte("first_seen_at", new Date(Date.now() - 365 * 864e5).toISOString()).limit(3000) : q.eq("pao_id", pao_id).limit(300);
+    return await q;
+  };
+  let res = await poolQuery(true);
+  if (res.error) res = await poolQuery(false);   // update-14.sql not run yet
+  const pool: Item[] = dedupe((res.data ?? []) as Item[]);
+
+  const { data: paoRows } = await svc.from("paos").select("id,name,abbr");
+  const abbr = new Map((paoRows ?? []).map((p) => [p.id, p.abbr || p.name || p.id]));
+
+  let items: Item[];
+  const earlier = thread?.messages.find((m) => m.role === "user" && m.item_ids?.length)?.item_ids;
+  if (region && earlier) {
+    // follow-up in a whole-region conversation: keep the same numbered items so [n] still means the same article
+    const byId = new Map(pool.map((it) => [it.id, it]));
+    const missing = earlier.filter((id) => !byId.has(id));
+    if (missing.length) {
+      const { data } = await svc.from("items").select(COLS).in("id", missing);
+      for (const it of (data ?? []) as Item[]) byId.set(it.id, it);
+    }
+    items = earlier.map((id) => byId.get(id)).filter(Boolean) as Item[];
+  } else if (region) {
+    const topic = [question, ...(thread?.messages ?? []).filter((m) => m.role === "user").map((m) => m.content)].join(" ");
+    items = pickForTopic(pool, topic, MAX_ITEMS);
+  } else {
+    items = pool.sort((a, b) => rank(a) - rank(b) || when(b).localeCompare(when(a))).slice(0, MAX_ITEMS);
+  }
+  items.sort((a, b) => when(b).localeCompare(when(a)));
+
   const numbered = items.map((it, i) => {
     const date = when(it).slice(0, 10);
-    return `[${i + 1}] ${date} | ${it.source}${it.kind && it.kind !== "news" ? ` (${it.kind === "comment" ? "opportunity to comment" : it.kind})` : ""}${it.relevance ? ` | staff-tagged: ${it.relevance}` : ""} | ${it.title}${it.snippet ? `\n    ${short(it.snippet)}` : ""}`;
+    const org = region ? `${abbr.get(it.pao_id) ?? it.pao_id} | ` : "";
+    const rel = it.relevance ? ` | staff-tagged: ${it.relevance}` : it.ai_relevance ? ` | AI-rated: ${it.ai_relevance}` : "";
+    return `[${i + 1}] ${org}${date} | ${it.source}${it.kind && it.kind !== "news" ? ` (${it.kind === "comment" ? "opportunity to comment" : it.kind})` : ""}${rel} | ${it.title}${it.snippet ? `\n    ${short(it.snippet)}` : ""}`;
   });
 
-  const system = `You are answering questions for CAPA staff about one specific organisation: \
-${pao.name} (${pao.abbr ?? pao.id}), ${pao.grp ?? "Member"}, ${pao.jurisdiction ?? "jurisdiction unknown"}.
+  const system = region
+    ? `You are answering questions for CAPA staff about developments across CAPA's network - its member \
+PAOs and key stakeholders in Asia-Pacific and international bodies such as IFAC and the standard-setters.
 
 ${COLLABORATION_GUIDELINES}
 
-Collected items about ${pao.name} (most recent first, numbered for citation; this is ALL the \
+Whole-region questions: where the guidelines above talk about "the PAO", apply them across the organisations in \
+the items. Compare and contrast: name which organisations are doing what, note common patterns and differences, and \
+say where only one or two organisations show evidence. Each item starts with the organisation's abbreviation.
+The items below were selected for the question from everything collected in the last 12 months; they are a sample, \
+not a complete picture of the region (and say nothing about countries outside CAPA's network). Say so when the \
+evidence is thin, rather than generalising.
+
+Collected items (most recent first, numbered for citation; this is ALL the evidence you have - you cannot browse the web):
+${numbered.length ? numbered.join("\n\n") : "(No collected items matched this question.)"}
+`
+    : `You are answering questions for CAPA staff about one specific organisation: \
+${pao!.name} (${pao!.abbr ?? pao!.id}), ${pao!.grp ?? "Member"}, ${pao!.jurisdiction ?? "jurisdiction unknown"}.
+
+${COLLABORATION_GUIDELINES}
+
+Collected items about ${pao!.name} (most recent first, numbered for citation; this is ALL the \
 evidence you have - you cannot browse the web):
 ${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PAO.)"}
 `;
@@ -209,13 +255,13 @@ ${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PA
   const citedIds = citedNums.map((n) => items[n - 1].id);
   const sources = citedNums.map((n) => {
     const it = items[n - 1];
-    return { n, id: it.id, title: it.title, url: it.url, source: it.source, date: when(it).slice(0, 10) };
+    return { n, id: it.id, title: it.title, url: it.url, source: it.source, date: when(it).slice(0, 10), ...(region ? { pao: abbr.get(it.pao_id) ?? it.pao_id } : {}) };
   });
 
   const now = new Date().toISOString();
   const newMessages = [
     ...(thread?.messages ?? []),
-    { role: "user", content: question, at: now },
+    { role: "user", content: question, at: now, ...(region && !earlier ? { item_ids: items.map((it) => it.id) } : {}) },
     { role: "assistant", content: answer.text, cited_item_ids: citedIds, sources, at: now, model: answer.model },
   ];
 
@@ -225,7 +271,7 @@ ${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PA
   } else {
     const { data: created } = await svc
       .from("ask_ai_threads")
-      .insert({ pao_id, started_by: email, messages: newMessages })
+      .insert({ pao_id: region ? null : pao_id, started_by: email, messages: newMessages })   // null = whole region (update-15.sql)
       .select("id")
       .single();
     threadId = created?.id;
