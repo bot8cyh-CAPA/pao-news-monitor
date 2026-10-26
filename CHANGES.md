@@ -2,6 +2,19 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-26 — AI-suggested relevance (you still decide) + calendar date filter
+**AI suggests a relevance label for every new item** (from your Automated Article Relevance Framework v2.0):
+- After each daily collection, the AI reads each new item and suggests **High / Medium / Low / No relevance** with a one-sentence reason. It judges substance against CAPA's remit and the member/stakeholder list, not keyword matches.
+- **Caps:** exams, awards, webinars, event promotion, ceremonial meetings, routine appointments, generic corporate news and local tax / market / political stories are **Low** at most (or No if routine or unrelated), unless the item shows a real change. A member PAO's new President / CEO is Medium.
+- **On each item:** "AI suggests Low: routine exam results…" with the suggested button outlined. Click the outlined button to confirm it, or click any other button to override. Every item can be overridden. The AI's original suggestion is never overwritten; if you disagree it stays visible as "AI suggested …" so there's a record.
+- **Until someone reviews it, the suggestion counts:** the default view hides AI-said "No relevance" items, the High/Medium filters include AI suggestions, and the weekly brief uses them (marked "suggested, not yet reviewed" to the AI writer). Your label always wins.
+- **New Show options:** "AI-suggested, not yet reviewed" and "AI said Low / No - spot-check these" (for the weekly check of what the AI left out). Export CSV has two new columns: AI suggestion and AI reason.
+- Uses the same free AI providers as the brief; up to 300 items a day, items already tagged by staff are skipped.
+
+**Calendar date filter:** the Period dropdown is now **Dates**: quick ranges (24 hours, 7 / 30 / 90 days, 12 months, all time) plus a two-month calendar. Click a start date and an end date (or the same day twice). Each day shows how many items are dated that day. Your choice is remembered.
+
+**Needs:** run `supabase/update-14.sql` in the Supabase SQL Editor. Until then the tracker and collector work as before, just without suggestions. No Ask AI redeploy needed.
+
 ## 2026-10-26 — Fix: "Open for comment" said "None this week" with a consultation waiting
 **What happened:** the ISSB nature-related disclosures consultation (IFRS email, 22 Oct) was tagged **Opportunity to comment** and **High**, and it was sent to the AI with a note to put it under Open for comment. With 70 items in the list, the AI missed it and wrote "None this week."
 

@@ -41,10 +41,11 @@ class SupabaseStore:
             return False
 
     def items_since(self, since_iso):
-        cols = "id,pao_id,source,title,url,published_at,snippet,language,is_baseline,first_seen_at,relevance,category,kind"
+        base = "id,pao_id,source,title,url,published_at,snippet,language,is_baseline,first_seen_at,relevance,category,kind"
         since_iso = quote(since_iso.replace("+00:00", "Z"), safe=":-.TZ")
-        # removed items are left out (falls back if update-10.sql hasn't been run yet)
-        for extra in ("&removed_at=is.null", ""):
+        # removed items are left out; AI suggestions included (each falls back if its update hasn't been run yet)
+        for cols, extra in ((base + ",ai_relevance,ai_relevance_reason", "&removed_at=is.null"),
+                            (base, "&removed_at=is.null"), (base, "")):
             rows = []
             try:
                 for start in range(0, 20000, 1000):
@@ -67,6 +68,13 @@ class SupabaseStore:
             if "purge_old_items" in str(e) or "404" in str(e):
                 return None
             raise
+
+    def items_needing_relevance(self, since_iso, limit):
+        """New items nobody has labelled yet - not by staff, not by the AI (needs update-14.sql)."""
+        since_iso = quote(since_iso.replace("+00:00", "Z"), safe=":-.TZ")
+        return self._req("GET", "/items?select=id,pao_id,source,title,snippet,published_at,first_seen_at,kind"
+                                f"&ai_relevance=is.null&relevance=is.null&is_baseline=is.false&removed_at=is.null"
+                                f"&first_seen_at=gte.{since_iso}&order=first_seen_at.desc&limit={int(limit)}").json()
 
     def save_item_ai(self, rows):
         for i in range(0, len(rows), 200):
@@ -195,6 +203,12 @@ class JsonStore:
 
     def purge_old(self):
         return None
+
+    def items_needing_relevance(self, since_iso, limit):
+        rows = [dict(r) for r in self.data["items"].values()
+                if not r.get("ai_relevance") and not r.get("relevance") and not r.get("is_baseline")
+                and not r.get("removed_at") and (r.get("first_seen_at") or "") >= since_iso]
+        return sorted(rows, key=lambda r: r.get("first_seen_at") or "", reverse=True)[:limit]
 
     def save_item_ai(self, rows):
         for r in rows:

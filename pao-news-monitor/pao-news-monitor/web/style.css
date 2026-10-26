@@ -115,6 +115,37 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .multi-tools button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 2px 4px; }
 .multi-tools button:hover { text-decoration: underline; }
 
+/* Dates: quick ranges + two-month calendar */
+.cal-panel { min-width: 0; width: min(640px, calc(100vw - 32px)); padding: 12px; gap: 8px; }
+.cal-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-presets button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.cal-presets button:hover { border-color: var(--accent); }
+.cal-presets button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cal-wrap { position: relative; }
+.cal-months { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.cal-month h3 { margin: 4px 0 8px; text-align: center; font-size: 15px; color: var(--accent); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 4px; }
+.cal-wd { text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; padding-bottom: 4px; }
+.cal-day { font: inherit; border: 0; background: none; color: var(--ink); cursor: pointer; min-height: 44px; padding: 3px 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; border-radius: 0; }
+.cal-day.empty { cursor: default; }
+.cal-day:not(.empty):not(:disabled):hover .cal-num { text-decoration: underline; }
+.cal-day:disabled { color: var(--line); cursor: default; }
+.cal-num { font-size: 14px; font-variant-numeric: tabular-nums; }
+.cal-count { font-size: 11px; color: var(--muted); min-height: 13px; font-variant-numeric: tabular-nums; }
+.cal-day.today .cal-num { font-weight: 700; }
+.cal-day.in-range { background: var(--accent-soft); }
+.cal-day.start, .cal-day.end { background: var(--accent); color: #fff; border-radius: 8px; }
+.cal-day.start .cal-count, .cal-day.end .cal-count { color: #fff; font-weight: 600; }
+.cal-day.start.in-range:not(.end) { border-radius: 8px 0 0 8px; }
+.cal-day.end.in-range:not(.start) { border-radius: 0 8px 8px 0; }
+.cal-day:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-nav { position: absolute; top: 0; font: inherit; font-size: 22px; line-height: 1; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 2px 8px; }
+.cal-nav.prev { left: 0; } .cal-nav.next { right: 0; }
+.cal-nav:disabled { color: var(--line); cursor: default; }
+.cal-hint { margin: 0; font-size: 12px; color: var(--muted); }
+@media (max-width: 600px) { .cal-months { grid-template-columns: 1fr; } }
+
 /* layout */
 .layout { max-width: 1100px; margin: 0 auto; }
 .count { font-size: 12px; background: var(--line); border-radius: 10px; padding: 1px 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -183,6 +214,17 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .seg button[data-rel=medium][aria-pressed=true] { background: var(--accent); color: #fff; }
 .seg button[data-rel=low][aria-pressed=true] { background: var(--pao); color: #fff; }
 .seg button[data-rel=none][aria-pressed=true] { background: var(--muted); color: #fff; }
+/* AI suggestion (not yet reviewed): dashed outline in the level's colour; the staff choice stays solid */
+.seg button.suggested { box-shadow: inset 0 0 0 2px var(--sug, var(--accent)); font-weight: 600; }
+.seg button.suggested[data-rel=high] { --sug: var(--ok); }
+.seg button.suggested[data-rel=low] { --sug: var(--pao); }
+.seg button.suggested[data-rel=none] { --sug: var(--muted); }
+.ai-rel { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.ai-rel b { color: var(--ink); }
+.ai-rel::before { content: "AI"; display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 0 5px; margin-right: 6px;
+  border: 1px solid var(--line); border-radius: 4px; vertical-align: 1px; }
+.ai-rel.overridden { text-decoration: none; opacity: .8; }
+.item.ai-only.high, .item.ai-only.medium { background: none; }
 .actions .cat { width: 190px; font-size: 13px; padding: 4px 8px; }
 .actions .kind-pick, .actions .pao-pick { font-size: 13px; padding: 4px 6px; }
 .actions .pao-pick { max-width: 260px; }
