@@ -6,6 +6,7 @@ Plain-language log of what changed and why, for anyone who isn't reading the cod
 **Whole region (all PAOs):** a new first option in Ask AI's picker. Ask things like "how are PAOs approaching AI adoption, and what concerns are they raising?" and it answers across the whole network, naming which PAO each point comes from (the Sources list shows the PAO too).
 - How it picks articles: from everything collected in the last 12 months, it finds items matching your question (using the themes the brief already tags, like "AI & digitalisation", plus words from your question), most important first, **at most 4 per PAO** so one busy PAO can't drown out the rest, 30 in total.
 - A vague question ("what's going on across the region?") gets the most important recent items instead.
+- **Time periods in the question are respected** (single PAO too): "past 24 hours", "today", "this week", "last 3 months", "past 2 weeks" etc. limit it to items from that period. If nothing was collected then, it says so. A follow-up keeps the first question's period.
 - Follow-up questions keep the same set of articles, so "tell me more about [3]" still means the same article.
 - Limits, said plainly in the answer: it only knows what the monitor has collected, so it's a sample of CAPA's network, not the whole region, and it knows nothing about countries outside the network. No web search.
 
