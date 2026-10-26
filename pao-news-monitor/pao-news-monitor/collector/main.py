@@ -13,7 +13,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-from . import browser, email_inbox, news_search, pagewatch, websites
+from . import browser, email_inbox, news_search, pagewatch, relevance, websites
 from .common import PAO, iso, load_paos, log, now_utc
 from .store import get_store
 
@@ -257,6 +257,15 @@ def run(only=None, sources=None, dry_run=False, workers=8):
         health_rows.append(health_row(res, health.get((res.pao_id, res.source)), new_count, started))
     store.save_health(health_rows)
 
+    # AI-suggested relevance for new items (supabase/update-14.sql); never fails the run
+    ai_note = None
+    if not problems:
+        try:
+            ai_note = relevance.suggest(store)
+        except Exception as e:   # noqa: BLE001
+            log.warning("AI relevance skipped: %s", e)
+            ai_note = f"AI relevance: skipped ({type(e).__name__})"
+
     # daily clean-up of old clutter (supabase/update-10.sql); never fails the run
     purged = None
     if not only:
@@ -272,6 +281,7 @@ def run(only=None, sources=None, dry_run=False, workers=8):
         "only": sorted(only) if only else None, "dry_run": dry_run,
         "changes": sum(1 for r in rows if r["id"] in inserted and r["source"] == "page_watch"),
         "db_update_needed": problems or None,
+        "ai_relevance": ai_note,
     }
     store.log_run({"started_at": iso(started), "finished_at": iso(now_utc()), "summary": summary})
 
@@ -292,6 +302,8 @@ def write_step_summary(health_rows, summary, rows, inserted):
     icon = {"ok": "🟢", "warning": "🟠", "error": "🔴", "skipped": "⚪"}
     out = [f"### {summary['new']} new item(s), {summary.get('changes') or 0} leadership/contact change(s), "
            f"{summary['errors']} error(s), {summary['warnings']} warning(s)", ""]
+    if summary.get("ai_relevance"):
+        out += [summary["ai_relevance"], ""]
     if summary.get("db_update_needed"):
         out += [f"> **Database needs updating** (missing {', '.join(summary['db_update_needed'])}): paste "
                 "`supabase/update-2.sql` into Supabase > SQL Editor and Run.", ""]

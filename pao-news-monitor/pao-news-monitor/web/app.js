@@ -27,7 +27,8 @@
     const h = new URLSearchParams(location.hash.replace(/^#/, "")), q = new URLSearchParams(location.search);
     return { type: h.get("type") || q.get("type") || "", error: h.get("error_description") || q.get("error_description") || "" };
   })();
-  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team", perms: [], open: new Set() };
+  const state = { paos: [], items: [], health: [], lastRun: null, user: null, loadedSince: undefined, role: "team", perms: [], open: new Set(),
+    date: { preset: "30" }, cal: { month: null, pending: null, hover: null } };
   let db = null;
 
   // ---------- data layer ----------
@@ -94,7 +95,7 @@
       ]);
       for (const r of [paos, health, runs]) if (r.error) throw r.error;
       const BASE = "id,pao_id,source,title,url,published_at,snippet,source_name,language,is_baseline,first_seen_at,relevance,category,notes,reviewed_by,reviewed_at";
-      const tries = [BASE + ",kind,ai_summary,ai_themes,removed_at,removed_by", BASE + ",kind,ai_summary,ai_themes", BASE + ",kind", BASE];   // newer columns first; older databases fall back
+      const tries = [BASE + ",kind,ai_summary,ai_themes,removed_at,removed_by,ai_relevance,ai_relevance_reason", BASE + ",kind,ai_summary,ai_themes,removed_at,removed_by", BASE + ",kind,ai_summary,ai_themes", BASE + ",kind", BASE];   // newer columns first; older databases fall back
       let cols = tries.shift();
       const items = [];
       for (let from = 0; ; from += 1000) {
@@ -144,7 +145,7 @@
   // ---------- filters ----------
   function filters() {
     return {
-      period: $("#f-period").value,
+      period: state.date.preset || "custom", from: state.date.from || null, to: state.date.to || null,
       status: $("#f-status").value,
       sources: $$("input[name=src]:checked").map((i) => i.value).concat("_seen_pw"),
       kinds: $$("input[name=kind]:checked").map((i) => i.value).concat("_seen_cm"),
@@ -159,7 +160,8 @@
     let f = null;
     try { f = JSON.parse(localStorage.getItem(NOTE_FILTER_KEY) || "null"); } catch { /* ignore */ }
     if (!f) return;
-    if (f.period) $("#f-period").value = f.period;
+    if (f.period === "custom" && f.from && f.to) state.date = { from: f.from, to: f.to };
+    else if (f.period && PRESETS[f.period]) state.date = { preset: f.period };
     // ignore a saved choice that no longer exists (e.g. the old "Country-specific only")
     if (f.status && $(`#f-status option[value="${f.status}"]`)) $("#f-status").value = f.status;
     // "page_watch" is new: tick it for people whose saved filters predate it
@@ -182,21 +184,50 @@
     return "news";
   }
   const kindGroup = (k) => (k === "leadership" || k === "contact" ? "changes" : k);
-  const sinceIso = (period) => (period === "all" ? null : new Date(Date.now() - Number(period) * 864e5).toISOString());
   const itemDate = (it) => it.published_at || it.first_seen_at;
+  // staff label if someone reviewed it, otherwise the AI's suggestion (supabase/update-14.sql)
+  const eff = (it) => it.relevance || it.ai_relevance || null;
+  // ---------- dates: quick ranges or a calendar range ----------
+  const PRESETS = { "1": "Last 24 hours", "7": "Last 7 days", "30": "Last 30 days", "90": "Last 90 days", "365": "Last 12 months", all: "All time" };
+  const pad = (n) => String(n).padStart(2, "0");
+  const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;   // local calendar day
+  const fromKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+  // {since, until, custom}: ISO bounds for the chosen dates (until is exclusive)
+  function dateRange(f) {
+    if (f.period === "custom" && f.from && f.to) {
+      const until = fromKey(f.to); until.setDate(until.getDate() + 1);
+      return { since: fromKey(f.from).toISOString(), until: until.toISOString(), custom: true };
+    }
+    if (!f.period || f.period === "all" || !PRESETS[f.period]) return { since: null, until: null };
+    return { since: new Date(Date.now() - Number(f.period) * 864e5).toISOString(), until: null };
+  }
+  function dateLabel() {
+    const d = state.date;
+    if (d.preset) return PRESETS[d.preset];
+    const fmt = (k, withYear) => fromKey(k).toLocaleDateString(undefined, { day: "numeric", month: "short", ...(withYear ? { year: "numeric" } : {}) });
+    const sameYear = d.from.slice(0, 4) === d.to.slice(0, 4) && d.from.slice(0, 4) === String(new Date().getFullYear());
+    return d.from === d.to ? fmt(d.from, !sameYear) : `${fmt(d.from, false)} – ${fmt(d.to, !sameYear)}`;
+  }
 
-  function visible(it, f, since) {
+  function visible(it, f, rng = {}) {
     if (!f.sources.includes(it.source)) return false;
     if (!f.kinds.includes(kindGroup(kindOf(it)))) return false;
     if (f.status === "removed") return !!it.removed_at;   // the bin: only removed items, nothing else applies
     if (it.removed_at) return false;
     if (it.is_baseline && !f.baseline) return false;
-    // in the period = published in it, or newly found by us in it
-    if (since && !(itemDate(it) >= since || it.first_seen_at >= since)) return false;
-    if (f.status === "hide_not" && it.relevance === "none") return false;
+    if (rng.custom) {
+      // calendar range: the item's own date (what the calendar counts show)
+      const d = itemDate(it);
+      if (!d || d < rng.since || d >= rng.until) return false;
+    } else if (rng.since && !(itemDate(it) >= rng.since || it.first_seen_at >= rng.since)) {
+      return false;   // quick ranges: published in it, or newly found by us in it
+    }
+    if (f.status === "hide_not" && eff(it) === "none") return false;
     if (f.status === "unreviewed" && it.relevance) return false;
-    if (f.status === "high_med" && !["high", "medium"].includes(it.relevance)) return false;
-    if (["high", "medium", "low", "none"].includes(f.status) && it.relevance !== f.status) return false;
+    if (f.status === "ai_unchecked" && (it.relevance || !it.ai_relevance)) return false;
+    if (f.status === "ai_low_check" && (it.relevance || !["low", "none"].includes(it.ai_relevance))) return false;
+    if (f.status === "high_med" && !["high", "medium"].includes(eff(it))) return false;
+    if (["high", "medium", "low", "none"].includes(f.status) && eff(it) !== f.status) return false;
     if (f.q) {
       const hay = `${it.title} ${translations[it.id] || ""} ${it.ai_summary || ""} ${it.snippet || ""} ${it.notes || ""} ${it.category || ""} ${it.source_name || ""}`.toLowerCase();
       if (!hay.includes(f.q)) return false;
@@ -278,9 +309,9 @@
   // ---------- rendering ----------
   function render() {
     const f = filters();
-    const since = sinceIso(f.period);
+    const rng = dateRange(f);
     const byPao = new Map(state.paos.map((p) => [p.id, []]));
-    for (const it of state.items) if (byPao.has(it.pao_id) && visible(it, f, since)) byPao.get(it.pao_id).push(it);
+    for (const it of state.items) if (byPao.has(it.pao_id) && visible(it, f, rng)) byPao.get(it.pao_id).push(it);
     for (const list of byPao.values()) list.sort((a, b) => (itemDate(b) || "").localeCompare(itemDate(a) || ""));
 
     const groups = GROUP_ORDER.map((g) => ({ g, paos: state.paos.filter((p) => (p.grp || "Member") === g) }))
@@ -295,6 +326,7 @@
       groups.map(({ g, paos }) => `<h2 class="group-title">${esc(GROUP_LABEL[g] || g)}</h2>` + paos.map((p) => section(p, byPao.get(p.id), !!f.q)).join("")).join("");
     updateMultiLabels();
     updateToggleAll();
+    renderCalendar();
   }
 
   // Each PAO is a collapsible row: the header shows health, what's left to review and how many items;
@@ -338,7 +370,7 @@
   // ---------- Scan type / News type dropdowns ----------
   // Small checkbox menus. The summary shows "All", "None", the single choice, or "3 of 6".
   function updateMultiLabels() {
-    for (const d of $$(".multi")) {
+    for (const d of $$(".multi:not(#date-pick)")) {
       const boxes = $$(".multi-panel input[name]", d);
       const on = boxes.filter((b) => b.checked);
       const text = on.length === boxes.length ? "All" : on.length === 0 ? "None"
@@ -346,6 +378,104 @@
       $(".multi-value", d).textContent = text;
       d.classList.toggle("narrowed", on.length !== boxes.length);
     }
+  }
+
+  // ---------- calendar ----------
+  function setDates(next) {
+    state.date = next; state.cal.pending = null; state.cal.hover = null;
+    saveFilters();
+    const since = dateRange(filters()).since;
+    const needMore = state.loadedSince !== undefined && state.loadedSince !== null && (!since || since < state.loadedSince);
+    needMore ? reload() : render();
+  }
+
+  function renderCalendar() {
+    const box = $("#cal-months");
+    if (!box) return;
+    $("#date-value").textContent = dateLabel();
+    $("#date-pick").classList.toggle("narrowed", !state.date.preset || state.date.preset !== "30");
+    $$("[data-preset]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.preset === state.date.preset)));
+    const today = new Date();
+    if (!state.cal.month) {   // left month = the month before the selection's end (or before today)
+      const end = state.date.to ? fromKey(state.date.to) : today;
+      state.cal.month = new Date(end.getFullYear(), end.getMonth() - 1, 1);
+    }
+    // item counts per day, using every filter except the dates
+    const f = filters(), counts = {};
+    for (const it of state.items) {
+      const d = itemDate(it);
+      if (!d || !visible(it, f, {})) continue;
+      const k = dayKey(new Date(d));
+      counts[k] = (counts[k] || 0) + 1;
+    }
+    const loadedFrom = state.loadedSince ? dayKey(new Date(state.loadedSince)) : null;
+    const todayKey = dayKey(today);
+    let lo = null, hi = null;
+    if (state.cal.pending) {
+      const other = state.cal.hover || state.cal.pending;
+      [lo, hi] = [state.cal.pending, other].sort();
+    } else if (state.date.from) {
+      [lo, hi] = [state.date.from, state.date.to];
+    }
+    const month = (first) => {
+      const y = first.getFullYear(), m = first.getMonth();
+      const days = new Date(y, m + 1, 0).getDate();
+      let cells = "";
+      for (let i = 0; i < first.getDay(); i++) cells += `<span class="cal-day empty"></span>`;
+      for (let d = 1; d <= days; d++) {
+        const k = `${y}-${pad(m + 1)}-${pad(d)}`;
+        const future = k > todayKey;
+        const cls = ["cal-day"];
+        if (lo && k >= lo && k <= hi) cls.push("in-range");
+        if (k === lo) cls.push("start");
+        if (k === hi) cls.push("end");
+        if (k === todayKey) cls.push("today");
+        const known = !loadedFrom || k >= loadedFrom;
+        const n = counts[k];
+        const label = `${first.toLocaleDateString(undefined, { month: "long" })} ${d}${known && n ? `, ${n} item${n === 1 ? "" : "s"}` : ""}`;
+        cells += `<button type="button" class="${cls.join(" ")}" data-day="${k}"${future ? " disabled" : ""} aria-label="${esc(label)}">`
+          + `<span class="cal-num">${d}</span><span class="cal-count">${known && n ? n.toLocaleString() : ""}</span></button>`;
+      }
+      return `<div class="cal-month"><h3>${first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</h3>
+        <div class="cal-grid">${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => `<span class="cal-wd">${w}</span>`).join("")}${cells}</div></div>`;
+    };
+    const left = state.cal.month, right = new Date(left.getFullYear(), left.getMonth() + 1, 1);
+    box.innerHTML = month(left) + month(right);
+    $(".cal-nav.next").disabled = right.getFullYear() * 12 + right.getMonth() >= today.getFullYear() * 12 + today.getMonth();
+    $("#cal-hint").textContent = state.cal.pending
+      ? "Now click the end date (or the same day again for just that day)."
+      : "Click a start date, then an end date. The small number is how many items are dated that day.";
+  }
+
+  function wireCalendar() {
+    const panel = $("#date-pick");
+    panel.addEventListener("toggle", () => {
+      if (panel.open) { $$(".multi").forEach((o) => { if (o !== panel) o.open = false; }); state.cal.month = null; renderCalendar(); }
+      else { state.cal.pending = null; state.cal.hover = null; }
+    });
+    panel.addEventListener("click", (e) => {
+      if (e.target.closest(".cal-panel")) e.stopPropagation();   // the grid re-renders, so the page's "click outside" check can't tell
+      const pre = e.target.closest("[data-preset]");
+      if (pre) { setDates({ preset: pre.dataset.preset }); panel.open = false; return; }
+      const nav = e.target.closest("[data-cal-nav]");
+      if (nav) {
+        const m = state.cal.month;
+        state.cal.month = new Date(m.getFullYear(), m.getMonth() + Number(nav.dataset.calNav), 1);
+        return renderCalendar();
+      }
+      const day = e.target.closest("[data-day]");
+      if (!day || day.disabled) return;
+      const k = day.dataset.day;
+      if (!state.cal.pending) { state.cal.pending = k; state.cal.hover = k; return renderCalendar(); }
+      const [from, to] = [state.cal.pending, k].sort();
+      setDates({ from, to });
+      panel.open = false;
+    });
+    $("#cal-months").addEventListener("mouseover", (e) => {
+      const day = e.target.closest("[data-day]");
+      if (!state.cal.pending || !day || day.dataset.day === state.cal.hover) return;
+      state.cal.hover = day.dataset.day; renderCalendar();
+    });
   }
 
   function updateToggleAll() {
@@ -356,7 +486,12 @@
   function card(it) {
     const ro = can("tag_items") ? "" : " disabled";
     const reviewed = it.reviewed_by ? `<span class="muted small">by ${esc(it.reviewed_by.split("@")[0])} ${ago(it.reviewed_at)}</span>` : "";
-    return `<li class="item ${it.relevance || ""}" data-id="${esc(it.id)}">
+    const ai = it.ai_relevance, aiLabel = RELEVANCE_LABEL[ai] || "";
+    const aiNote = !ai ? ""
+      : !it.relevance ? `<p class="ai-rel" title="Suggested by AI - click the highlighted button to confirm it, or pick another">AI suggests <b>${esc(aiLabel)}</b>${it.ai_relevance_reason ? `: ${esc(it.ai_relevance_reason)}` : ""}</p>`
+      : it.relevance !== ai ? `<p class="ai-rel overridden" title="The AI's original suggestion, kept for the record">AI suggested ${esc(aiLabel)}${it.ai_relevance_reason ? `: ${esc(it.ai_relevance_reason)}` : ""}</p>` : "";
+    const sug = (lv) => (!it.relevance && ai === lv ? " suggested" : "");
+    return `<li class="item ${eff(it) || ""}${!it.relevance && ai ? " ai-only" : ""}" data-id="${esc(it.id)}">
       <div class="meta">
         <span class="src ${esc(it.source)}">${esc(SOURCE_LABEL[it.source] || it.source)}</span>
         ${kindOf(it) !== "news" ? `<span class="kind ${esc(kindOf(it))}">${esc(KIND_LABEL[kindOf(it)] || kindOf(it))}</span>` : ""}
@@ -372,12 +507,13 @@
       ${it.snippet && it.snippet.startsWith("Search: ") ? `<p class="muted small">Found by ${esc(it.snippet.toLowerCase())}</p>` : ""}
       ${it.source === "email" ? `<button class="link small" data-content="${esc(it.id)}" data-show="Show full email" data-hide="Hide email" type="button">Show full email</button><pre class="full" hidden></pre>` : ""}
       ${it.source === "page_watch" ? `<button class="link small" data-content="${esc(it.id)}" data-show="Show before / now" data-hide="Hide before / now" type="button">Show before / now</button><pre class="full" hidden></pre>` : ""}
+      ${aiNote}
       <div class="actions">
         <div class="seg" role="group" aria-label="Relevance">
-          <button type="button" data-rel="high" aria-pressed="${it.relevance === "high"}" title="Matters to CAPA's regional work - goes in the brief's Key developments"${ro}>High</button>
-          <button type="button" data-rel="medium" aria-pressed="${it.relevance === "medium"}" title="Worth knowing - goes in the brief's Other updates"${ro}>Med</button>
-          <button type="button" data-rel="low" aria-pressed="${it.relevance === "low"}" title="Kept for the record (e.g. a single-country issue) - tracker only, not in the brief"${ro}>Low</button>
-          <button type="button" data-rel="none" aria-pressed="${it.relevance === "none"}" title="Not relevant to CAPA - hidden by default, cleaned up after 12 months"${ro}>No relevance</button>
+          <button type="button" class="${sug("high")}" data-rel="high" aria-pressed="${it.relevance === "high"}" title="Matters to CAPA's regional work - goes in the brief's Key developments"${ro}>High</button>
+          <button type="button" class="${sug("medium")}" data-rel="medium" aria-pressed="${it.relevance === "medium"}" title="Worth knowing - goes in the brief's Other updates"${ro}>Med</button>
+          <button type="button" class="${sug("low")}" data-rel="low" aria-pressed="${it.relevance === "low"}" title="Kept for the record (e.g. a single-country issue) - tracker only, not in the brief"${ro}>Low</button>
+          <button type="button" class="${sug("none")}" data-rel="none" aria-pressed="${it.relevance === "none"}" title="Not relevant to CAPA - hidden by default, cleaned up after 12 months"${ro}>No relevance</button>
         </div>
         <input class="cat" list="cats" value="${esc(it.category || "")}" placeholder="Category" aria-label="Category"${ro}>
         <input class="notes" value="${esc(it.notes || "")}" placeholder="Notes" aria-label="Notes"${ro}>
@@ -433,7 +569,7 @@
 
   async function reload() {
     const f = filters();
-    const since = sinceIso(f.period);
+    const since = dateRange(f).since;
     // only refetch from the server when we need older items than we have
     $("#main").innerHTML = `<p class="summary">Loading…</p>`;
     try {
@@ -446,12 +582,7 @@
   }
 
   function wire() {
-    $("#f-period").addEventListener("change", () => {
-      saveFilters();
-      const since = sinceIso($("#f-period").value);
-      const needMore = state.loadedSince && (!since || since < state.loadedSince);
-      needMore ? reload() : render();
-    });
+    wireCalendar();
     for (const el of ["#f-status", "#f-baseline"]) $(el).addEventListener("change", () => { saveFilters(); render(); });
     $$("input[name=src], input[name=kind]").forEach((i) => i.addEventListener("change", () => { saveFilters(); render(); }));
     let typing; $("#f-search").addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(render, 200); });
@@ -672,16 +803,16 @@
   });
 
   function exportCsv() {
-    const f = filters(); const since = sinceIso(f.period);
+    const f = filters(); const rng = dateRange(f);
     const paoById = new Map(state.paos.map((p) => [p.id, p]));
-    const rows = state.items.filter((it) => paoById.has(it.pao_id) && visible(it, f, since))
+    const rows = state.items.filter((it) => paoById.has(it.pao_id) && visible(it, f, rng))
       .sort((a, b) => (paoById.get(a.pao_id).sort_order - paoById.get(b.pao_id).sort_order) || (itemDate(b) || "").localeCompare(itemDate(a) || ""));
-    const head = ["PAO", "Organisation", "Jurisdiction", "Date", "Type", "Source", "Outlet / sender", "Title", "Title (English)", "Link", "Relevance", "Category", "Notes", "Reviewed by"];
+    const head = ["PAO", "Organisation", "Jurisdiction", "Date", "Type", "Source", "Outlet / sender", "Title", "Title (English)", "Link", "Relevance", "AI suggestion", "AI reason", "Category", "Notes", "Reviewed by"];
     const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const lines = [head.map(cell).join(",")].concat(rows.map((it) => {
       const p = paoById.get(it.pao_id);
       return [p.abbr, p.name, p.jurisdiction, (itemDate(it) || "").slice(0, 10), KIND_LABEL[kindOf(it)], SOURCE_LABEL[it.source], it.source_name, it.title, translations[it.id] || "", it.url,
-        RELEVANCE_LABEL[it.relevance] || "", it.category, it.notes, it.reviewed_by].map(cell).join(",");
+        RELEVANCE_LABEL[it.relevance] || "", RELEVANCE_LABEL[it.ai_relevance] || "", it.ai_relevance_reason, it.category, it.notes, it.reviewed_by].map(cell).join(",");
     }));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
