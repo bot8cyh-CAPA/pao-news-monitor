@@ -13,7 +13,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { COLLABORATION_GUIDELINES } from "./capa_context.ts";
-import { dedupe, type Item, pickForTopic, rank, when } from "./select.ts";
+import { dedupe, type Item, pickForTopic, questionWindowDays, rank, when, withinDays } from "./select.ts";
 
 const REGION = "_region";   // pao_id the page sends for "Whole region (all PAOs)"
 const MAX_TURNS = 15;        // user+assistant pairs per thread before the UI must start a new one
@@ -169,7 +169,10 @@ async function handle(req: Request): Promise<Response> {
   };
   let res = await poolQuery(true);
   if (res.error) res = await poolQuery(false);   // update-14.sql not run yet
-  const pool: Item[] = dedupe((res.data ?? []) as Item[]);
+  // "past 24 hours", "this week"...: only items from that period (a follow-up keeps the first question's period)
+  const firstQ = thread?.messages.find((m) => m.role === "user")?.content;
+  const windowDays = questionWindowDays(question) ?? (firstQ ? questionWindowDays(firstQ) : null);
+  const pool: Item[] = withinDays(dedupe((res.data ?? []) as Item[]), windowDays);
 
   const { data: paoRows } = await svc.from("paos").select("id,name,abbr");
   const abbr = new Map((paoRows ?? []).map((p) => [p.id, p.abbr || p.name || p.id]));
@@ -209,12 +212,12 @@ ${COLLABORATION_GUIDELINES}
 Whole-region questions: where the guidelines above talk about "the PAO", apply them across the organisations in \
 the items. Compare and contrast: name which organisations are doing what, note common patterns and differences, and \
 say where only one or two organisations show evidence. Each item starts with the organisation's abbreviation.
-The items below were selected for the question from everything collected in the last 12 months; they are a sample, \
+The items below were selected for the question from everything collected ${windowDays ? `in the last ${windowDays} day(s) (the period the question asks about)` : "in the last 12 months"}; they are a sample, \
 not a complete picture of the region (and say nothing about countries outside CAPA's network). Say so when the \
 evidence is thin, rather than generalising.
 
 Collected items (most recent first, numbered for citation; this is ALL the evidence you have - you cannot browse the web):
-${numbered.length ? numbered.join("\n\n") : "(No collected items matched this question.)"}
+${numbered.length ? numbered.join("\n\n") : windowDays ? "(Nothing was collected in that period. Say so plainly.)" : "(No collected items matched this question.)"}
 `
     : `You are answering questions for CAPA staff about one specific organisation: \
 ${pao!.name} (${pao!.abbr ?? pao!.id}), ${pao!.grp ?? "Member"}, ${pao!.jurisdiction ?? "jurisdiction unknown"}.
@@ -223,7 +226,7 @@ ${COLLABORATION_GUIDELINES}
 
 Collected items about ${pao!.name} (most recent first, numbered for citation; this is ALL the \
 evidence you have - you cannot browse the web):
-${numbered.length ? numbered.join("\n\n") : "(No items collected yet for this PAO.)"}
+${numbered.length ? numbered.join("\n\n") : windowDays ? "(Nothing was collected for this PAO in the period the question asks about. Say so plainly.)" : "(No items collected yet for this PAO.)"}
 `;
 
   const history = (thread?.messages ?? []).map((m) => ({ role: m.role, content: m.content }));
