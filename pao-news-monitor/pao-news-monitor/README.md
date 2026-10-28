@@ -177,7 +177,7 @@ Deleted items leave only their fingerprint behind (table `seen_items`, about 30 
 
 ## Ask AI setup
 
-**Ask AI** is a page (`ask-ai.html`) where staff with the *Ask AI* permission can ask about one PAO at a time - e.g. "what are possible routes of collaboration with this PAO?" - and get an answer in seconds, grounded only in that PAO's collected items (never a live web search; see `_bmad-output/planning-artifacts/architecture/ask-ai-architecture.md` for why). Pick **Whole region (all PAOs)** to ask across every PAO at once (e.g. "how are PAOs approaching AI adoption?"): it picks up to 30 matching items from the last 12 months, at most 4 per PAO, and names which PAO each point comes from. Run `supabase/update-15.sql` so whole-region conversations can take follow-up questions.
+**Ask AI** is a tab in the tracker (old `ask-ai.html` links forward to it) where staff with the *Ask AI* permission can ask about one PAO at a time - e.g. "what are possible routes of collaboration with this PAO?" - and get an answer in seconds, grounded only in that PAO's collected items (never a live web search; see `_bmad-output/planning-artifacts/architecture/ask-ai-architecture.md` for why). Pick **Whole region (all PAOs)** to ask across every PAO at once (e.g. "how are PAOs approaching AI adoption?"): it picks up to 30 matching items from the last 12 months, at most 4 per PAO, and names which PAO each point comes from. Run `supabase/update-15.sql` so whole-region conversations can take follow-up questions.
 
 Unlike the rest of the project, this needs a live function, not just a scheduled job, so it has its own one-off setup:
 

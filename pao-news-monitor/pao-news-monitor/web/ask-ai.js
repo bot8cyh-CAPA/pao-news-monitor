@@ -1,94 +1,88 @@
-/* Ask AI - real-time Q&A about one PAO or the whole region, via a Supabase Edge Function (see supabase/functions/ask-ai). */
+/* Ask AI - a view inside the tracker (index.html#ask): real-time Q&A about one PAO or the whole region,
+   via the ask-ai Supabase Edge Function (see supabase/functions/ask-ai).
+   It reuses the tracker's sign-in, database connection, PAO list and permissions, so switching tabs
+   doesn't reload anything, and a conversation is still there when you come back to the tab. */
 (() => {
   "use strict";
-  const CFG = window.PAO_CONFIG || {};
-  const DEMO = !CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY;
-  const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js";
+  const A = window.PAOApp;
   const $ = (s, el = document) => el.querySelector(s);
-  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const esc = A.esc;
 
-  let db, paos = [], threadId = null, messages = [], sending = false;
+  let ready = false, threadId = null, messages = [], sending = false;
 
-  function loadScript(src) {
-    return new Promise((ok, fail) => {
-      const s = document.createElement("script");
-      s.src = src; s.onload = ok; s.onerror = () => fail(new Error("Could not load " + src));
-      document.head.appendChild(s);
-    });
+  function show(id) {
+    for (const x of ["#ai-demo", "#ai-no-perm", "#ai-main"]) $(x).hidden = x !== id;
   }
 
-  async function boot() {
-    if (DEMO) {
-      $("#signin-needed").hidden = false;
-      $("#signin-needed").innerHTML = "Ask AI needs a live database - it isn't available in demo mode. <a href=\"index.html\">Back to the tracker</a>";
-      return;
+  // Runs each time the tab opens; fills the PAO picker the first time.
+  function setup() {
+    if (A.DEMO) return show("#ai-demo");
+    if (!A.can("ask_ai")) return show("#ai-no-perm");
+    if (!ready) {
+      const paos = A.state.paos.filter((p) => p.id !== "_unmatched_email" && p.active !== false);
+      $("#ai-pao").innerHTML = `<option value="_region">Whole region (all PAOs)</option>` +
+        paos.map((p) => `<option value="${esc(p.id)}">${esc(p.abbr || p.name)}${p.jurisdiction ? ` (${esc(p.jurisdiction)})` : ""}</option>`).join("");
+      $("#ai-pao").value = paos[0]?.id || "_region";   // a single PAO first, as before
+      placeholder();
+      render();
+      ready = true;
     }
-    await loadScript(SUPABASE_JS);
-    db = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
-    const { data } = await db.auth.getSession();
-    if (!data.session?.user) { $("#signin-needed").hidden = false; return; }
-    $("#user").textContent = data.session.user.email;
-    $("#signout").addEventListener("click", async () => { await db.auth.signOut(); location.href = "index.html"; });
-
-    const { data: perms, error: permErr } = await db.rpc("my_permissions");
-    if (permErr) { $("#not-set-up").hidden = false; return; }
-    const { data: role } = await db.rpc("my_role");
-    if (role === "admin") $("#admin-link").hidden = false;
-    if (role !== "admin" && !(perms || []).includes("ask_ai")) { $("#no-perm").hidden = false; return; }
-
-    const { data: paoRows, error: paoErr } = await db.from("paos").select("id,name,abbr,jurisdiction,grp").eq("active", true).order("sort_order");
-    if (paoErr) { $("#not-set-up").hidden = false; return; }
-    paos = paoRows || [];
-    $("#pao").innerHTML = `<option value="_region">Whole region (all PAOs)</option>` + paos.map((p) => `<option value="${esc(p.id)}">${esc(p.abbr || p.name)}${p.jurisdiction ? ` (${esc(p.jurisdiction)})` : ""}</option>`).join("");
-
-    $("#pao").value = paos[0]?.id || "_region";   // a single PAO first, as before
-    placeholder();
-    $("#ask-ai").hidden = false;
-    wire();
+    show("#ai-main");
   }
 
-  function wire() {
-    $("#new-chat").addEventListener("click", () => { threadId = null; messages = []; render(); });
-    $("#pao").addEventListener("change", () => { threadId = null; messages = []; placeholder(); render(); });
-    $("#ask-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (sending) return;
-      const q = $("#question").value.trim();
-      if (!q) return;
-      sending = true;
-      $("#ask-btn").disabled = true; $("#ask-btn").textContent = "Asking…";
-      messages.push({ role: "user", content: q, at: new Date().toISOString() });
-      render();
-      $("#question").value = "";
-      try {
-        // never spin forever: give up after 2 minutes with a clear message
-        const timeout = new Promise((_, fail) => setTimeout(() => fail(new Error("No answer after 2 minutes - the AI services may be busy. Please try again.")), 120_000));
-        const { data, error } = await Promise.race([
-          db.functions.invoke("ask-ai", { body: { pao_id: $("#pao").value, thread_id: threadId, question: q } }),
-          timeout,
-        ]);
-        if (error) {
-          // The function sends back a readable reason (e.g. "AI providers all failed"); show that, not the generic wrapper.
-          let detail = "";
-          try { detail = (await error.context.json()).error || ""; } catch { /* no readable body */ }
-          throw new Error(detail || error.message);
-        }
-        if (data?.error) throw new Error(data.error);
-        threadId = data.thread_id;
-        messages.push({ role: "assistant", content: data.answer, cited_item_ids: data.cited_item_ids, sources: data.sources || [], model: data.model, at: new Date().toISOString() });
-        $("#new-chat").disabled = false;
-      } catch (err) {
-        messages.push({ role: "error", content: err.message || "Something went wrong." });
+  function open() {
+    for (const sel of [".filters", ".layout", "#brief-view", "#admin-view", "#status-view"]) document.querySelector(sel).hidden = true;
+    $("#ask-view").hidden = false;
+    setup();
+    window.scrollTo(0, 0);
+  }
+  function close() {
+    $("#ask-view").hidden = true;
+    for (const sel of [".filters", ".layout"]) document.querySelector(sel).hidden = false;
+  }
+
+  $("#ask-nav").addEventListener("click", open);
+  $("#ask-back").addEventListener("click", close);
+  $("#ai-new").addEventListener("click", () => { threadId = null; messages = []; $("#ai-new").disabled = true; render(); });
+  $("#ai-pao").addEventListener("change", () => { threadId = null; messages = []; placeholder(); render(); });
+  $("#ai-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (sending) return;
+    const q = $("#ai-question").value.trim();
+    if (!q) return;
+    sending = true;
+    $("#ai-ask").disabled = true; $("#ai-ask").textContent = "Asking…";
+    messages.push({ role: "user", content: q, at: new Date().toISOString() });
+    render();
+    $("#ai-question").value = "";
+    try {
+      // never spin forever: give up after 2 minutes with a clear message
+      const timeout = new Promise((_, fail) => setTimeout(() => fail(new Error("No answer after 2 minutes - the AI services may be busy. Please try again.")), 120_000));
+      const { data, error } = await Promise.race([
+        A.db.functions.invoke("ask-ai", { body: { pao_id: $("#ai-pao").value, thread_id: threadId, question: q } }),
+        timeout,
+      ]);
+      if (error) {
+        // The function sends back a readable reason (e.g. "AI providers all failed"); show that, not the generic wrapper.
+        let detail = "";
+        try { detail = (await error.context.json()).error || ""; } catch { /* no readable body */ }
+        throw new Error(detail || error.message);
       }
-      sending = false;
-      $("#ask-btn").disabled = false; $("#ask-btn").textContent = "Ask";
-      render();
-      $("#question").focus();
-    });
-  }
+      if (data?.error) throw new Error(data.error);
+      threadId = data.thread_id;
+      messages.push({ role: "assistant", content: data.answer, cited_item_ids: data.cited_item_ids, sources: data.sources || [], model: data.model, at: new Date().toISOString() });
+      $("#ai-new").disabled = false;
+    } catch (err) {
+      messages.push({ role: "error", content: err.message || "Something went wrong." });
+    }
+    sending = false;
+    $("#ai-ask").disabled = false; $("#ai-ask").textContent = "Ask";
+    render();
+    $("#ai-question").focus();
+  });
 
   function render() {
-    $("#thread").innerHTML = messages.map((m) => {
+    $("#ai-thread").innerHTML = messages.map((m) => {
       if (m.role === "user") return `<div class="ai-msg ai-user">${esc(m.content)}</div>`;
       if (m.role === "error") return `<div class="ai-msg ai-error">${esc(m.content)}</div>`;
       const n = m.cited_item_ids?.length || 0;
@@ -96,22 +90,22 @@
       const cited = meta ? `<p class="muted small">${esc(meta)}</p>` : "";
       return `<div class="ai-msg ai-assistant">${escMd(m.content, m.sources)}${sourcesList(m.sources)}${cited}</div>`;
     }).join("") || `<p class="empty-note">Ask a question about the selected PAO - e.g. "What's changed recently?" or "What are possible routes of collaboration?"</p>`;
-    $("#ask-note").textContent = threadId ? "Replies continue this conversation. Start a new question to begin a fresh one." : "";
+    $("#ai-note").textContent = threadId ? "Replies continue this conversation. Start a new question to begin a fresh one." : "";
     // bring the newest message into view from its top, so a long answer is read from the start
-    const last = $("#thread").lastElementChild;
+    const last = $("#ai-thread").lastElementChild;
     if (last && messages.length) last.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   // Only ever link to http(s) addresses - never javascript: or other schemes.
   const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "");
 
-  // Sources list under an answer: every article the AI cited, numbered as in the text.
   function placeholder() {
-    $("#question").placeholder = $("#pao").value === "_region"
+    $("#ai-question").placeholder = $("#ai-pao").value === "_region"
       ? "e.g. How are PAOs across the region approaching AI adoption, and what concerns are they raising?"
       : "e.g. What are possible routes of collaboration with this PAO?";
   }
 
+  // Sources list under an answer: every article the AI cited, numbered as in the text.
   function sourcesList(sources) {
     if (!sources?.length) return "";
     const li = sources.map((x) => {
@@ -149,7 +143,7 @@
       table = [];
     };
     // models sometimes write HTML line breaks: turn them into real breaks (a space inside table rows)
-    const fixed = s.split("\n").map((l) => l.replace(/<br\s*\/?>/gi, l.trimStart().startsWith("|") ? " " : "\n")).join("\n");
+    const fixed = String(s ?? "").split("\n").map((l) => l.replace(/[ \t]*<br\s*\/?>[ \t]*/gi, l.trimStart().startsWith("|") ? " " : "\n")).join("\n");
     for (const raw of esc(fixed).split("\n")) {
       const line = raw.trim();
       let m;
@@ -173,5 +167,6 @@
     return out.join("");
   }
 
-  boot();
+  // exposed for the test page only (renders an answer without calling the AI)
+  A.askAiRender = escMd;
 })();

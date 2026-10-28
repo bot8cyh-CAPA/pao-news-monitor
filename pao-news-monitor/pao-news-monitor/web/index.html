@@ -50,7 +50,7 @@
       <nav class="nav-links" aria-label="Sections">
         <button id="news-btn" class="nav-tab" type="button" aria-current="page">News</button>
         <button id="brief-btn" class="nav-tab" type="button">Weekly Brief</button>
-        <a id="ask-ai-link" class="nav-tab" href="ask-ai.html">Ask AI</a>
+        <button id="ask-nav" class="nav-tab" type="button">Ask AI</button>
         <button id="status-btn" class="nav-tab" type="button">Status</button>
       </nav>
       <details class="profile" id="profile">
@@ -115,6 +115,30 @@
         <h3>Every organisation</h3>
         <p class="muted small">Each source's last check. Hover a chip for the details.</p>
         <div class="table-wrap"><table class="grid" id="st-table"></table></div>
+      </div>
+    </section>
+
+    <section id="ask-view" class="ask-view" hidden>
+      <div class="admin-head">
+        <h2>Ask AI</h2>
+        <button class="btn" id="ask-back" type="button">← Back to news</button>
+      </div>
+      <p class="muted small">Ask about one PAO, or pick <b>Whole region</b> to compare across all of them. Answers are grounded only in what the monitor has collected.</p>
+      <div id="ai-demo" class="error-box" hidden>Ask AI needs a live database - it isn't available in demo mode.</div>
+      <div id="ai-no-perm" class="error-box" hidden>Your role doesn't include Ask AI. Ask an admin to tick it on the Admin tab.</div>
+      <div id="ai-main" class="ask-ai-body" hidden>
+        <div class="ask-ai-setup">
+          <label>Ask about
+            <select id="ai-pao"></select>
+          </label>
+          <button class="btn ghost" id="ai-new" type="button" disabled>New question</button>
+        </div>
+        <div id="ai-thread" class="ask-ai-thread" aria-live="polite"></div>
+        <form id="ai-form" class="ask-ai-form">
+          <textarea id="ai-question" placeholder="e.g. What are possible routes of collaboration with this PAO?" rows="2" required></textarea>
+          <button class="btn primary" type="submit" id="ai-ask">Ask</button>
+        </form>
+        <p id="ai-note" class="muted small"></p>
       </div>
     </section>
 
@@ -373,5 +397,6 @@
   <script src="app.js"></script>
   <script src="manage.js"></script>
   <script src="brief.js"></script>
+  <script src="ask-ai.js"></script>
 </body>
 </html>
