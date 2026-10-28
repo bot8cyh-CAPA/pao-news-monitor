@@ -2,6 +2,12 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-28 — Admin > People: Delete button
+- Admins can delete a row on **Admin > People** (for example a typo or a test email), not only set it to **No access**.
+- Never signed up: the row disappears completely. Already signed up: their login still exists, so they stay listed as *Access removed* (still no access) until the login is deleted in Supabase > Authentication > Users. The web page can't delete logins, because that needs the secret key.
+- You can't delete yourself; there must always be at least one admin.
+- Needs `supabase/update-16.sql` run once in the SQL Editor.
+
 ## 2026-10-28 — Ask AI is now a tab inside the tracker
 - Switching between News, Weekly Brief, Ask AI and Status no longer reloads the page, and an Ask AI conversation is still there when you come back to the tab.
 - Old links and bookmarks to `ask-ai.html` forward to the new tab.
