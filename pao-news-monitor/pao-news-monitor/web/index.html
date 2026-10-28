@@ -44,34 +44,28 @@
 
   <div id="app" hidden>
     <header class="topbar">
-      <div class="brand">
+      <a class="brand" href="index.html" aria-label="PAO News Monitor - News">
         <img class="brand-logo" src="capa-logo.png" alt="CAPA - Confederation of Asian and Pacific Accountants" width="180" height="58">
-        <div>
-          <h1>PAO News Monitor</h1>
-          <p id="last-run" class="muted small"></p>
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <button id="news-btn" class="nav-tab" type="button" aria-current="page">News</button>
+        <button id="brief-btn" class="nav-tab" type="button">Weekly Brief</button>
+        <a id="ask-ai-link" class="nav-tab" href="ask-ai.html">Ask AI</a>
+        <button id="status-btn" class="nav-tab" type="button">Status</button>
+      </nav>
+      <details class="profile" id="profile">
+        <summary class="profile-btn" aria-label="Your account">
+          <span class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="9" r="4.2" fill="currentColor"/><path d="M4 21c1.2-4.2 4.2-6.3 8-6.3s6.8 2.1 8 6.3z" fill="currentColor"/></svg></span>
+          <svg class="chev" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="profile-menu">
+          <p id="user" class="profile-email muted small"></p>
+          <button id="password-btn" class="menu-item" type="button" title="Set or change your password">Password</button>
+          <button id="admin-btn" class="menu-item admin-only" type="button">Admin</button>
+          <button id="signout" class="menu-item" type="button">Sign out</button>
         </div>
-      </div>
-      <div class="top-actions">
-        <span id="inbox-status" class="chip"></span>
-        <span id="user" class="muted small"></span>
-        <button id="password-btn" class="btn ghost" type="button" title="Set or change your password">Password</button>
-        <button id="signout" class="btn ghost" type="button">Sign out</button>
-      </div>
+      </details>
     </header>
-    <nav class="navbar" aria-label="Sections">
-      <div class="nav-links">
-        <button id="brief-btn" class="btn ghost" type="button">Weekly brief</button>
-        <a id="ocr-link" class="btn ghost edit-only" href="ocr.html">Screenshots (OCR)</a>
-        <a id="ask-ai-link" class="btn ghost" href="ask-ai.html">Ask AI</a>
-        <button id="import-btn" class="btn ghost edit-only" type="button">Import</button>
-        <button id="admin-btn" class="btn ghost admin-only" type="button">Admin</button>
-      </div>
-      <label class="nav-search" id="search-wrap">
-        <span class="sr-only">Search</span>
-        <input id="f-search" type="search" placeholder="Search titles, notes, categories…">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-      </label>
-    </nav>
     <div id="demo-banner" class="demo-banner" hidden>
       Demo mode with sample data. Fill in <code>web/config.js</code> to connect your database.
     </div>
@@ -88,6 +82,39 @@
           <div class="brief-tools" id="brief-tools"></div>
           <div id="brief-body"></div>
         </div>
+      </div>
+    </section>
+
+    <section id="status-view" class="status-view" hidden>
+      <div class="admin-head">
+        <h2>Status</h2>
+        <button class="btn" id="status-back" type="button">← Back to news</button>
+      </div>
+      <div class="status-cards">
+        <div class="panel status-card">
+          <span class="muted small">Last check</span>
+          <strong id="st-last">—</strong>
+          <span class="muted small" id="st-last-sub"></span>
+        </div>
+        <div class="panel status-card">
+          <span class="muted small">Email inbox (press releases)</span>
+          <strong id="st-inbox">—</strong>
+          <span class="muted small" id="st-inbox-sub"></span>
+        </div>
+        <div class="panel status-card">
+          <span class="muted small">Sources needing a look</span>
+          <strong id="st-issues">—</strong>
+          <span class="muted small">Websites, Google News and page watch</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Needs a look</h3>
+        <ul id="st-issues-list" class="status-list"></ul>
+      </div>
+      <div class="panel">
+        <h3>Every organisation</h3>
+        <p class="muted small">Each source's last check. Hover a chip for the details.</p>
+        <div class="table-wrap"><table class="grid" id="st-table"></table></div>
       </div>
     </section>
 
@@ -216,11 +243,18 @@
           <div class="multi-tools"><button type="button" data-multi="all">All</button><button type="button" data-multi="none">None</button></div>
         </div>
       </details>
-      <button id="refresh" class="btn ghost" type="button">Refresh</button>
-      <span class="filters-end">
-        <button id="toggle-all" class="btn ghost" type="button">Expand all</button>
-        <button id="export" class="btn ghost" type="button" title="Download what's on screen as a spreadsheet">Export CSV</button>
-      </span>
+      <a id="ocr-link" class="btn ghost edit-only" href="ocr.html" title="Turn screenshots of posts into tracker items">OCR</a>
+      <button id="import-btn" class="btn ghost edit-only" type="button" title="Import items from an Excel or CSV file">Import</button>
+      <button id="refresh" class="btn ghost icon-btn" type="button" title="Refresh" aria-label="Refresh">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="toggle-all" class="btn ghost" type="button">Expand all</button>
+      <button id="export" class="btn ghost" type="button" title="Download what's on screen as a spreadsheet">Export CSV</button>
+      <label class="search" id="search-wrap" title="Search titles, notes and categories">
+        <span class="sr-only">Search</span>
+        <input id="f-search" type="search" placeholder="Search" aria-label="Search titles, notes, categories">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+      </label>
     </div>
 
     <div class="layout">

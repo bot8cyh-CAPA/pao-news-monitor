@@ -56,7 +56,7 @@
 
   // ---------- view ----------
   function open() {
-    for (const sel of [".filters", ".layout", "#admin-view", "#search-wrap"]) document.querySelector(sel).hidden = true;
+    for (const sel of [".filters", ".layout", "#admin-view", "#status-view"]) document.querySelector(sel).hidden = true;
     $("#brief-view").hidden = false;
     window.scrollTo(0, 0);
     $("#brief-list").innerHTML = "<li class='muted'>Loading…</li>";
