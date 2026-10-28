@@ -410,6 +410,9 @@ dialog.zoom img { display: block; max-width: 100%; max-height: calc(100vh - 120p
 
 /* Ask AI */
 .ask-ai-main { max-width: 760px; margin: 0 auto; padding: 0 16px 24px; display: grid; gap: 12px; }
+.ask-view { max-width: 800px; margin: 0 auto; padding: 16px 20px 40px; display: grid; gap: 12px; }
+.ask-view > p { margin: 0; }
+.ask-ai-body { display: grid; gap: 12px; }
 .ask-ai-setup { display: flex; gap: 10px; align-items: center; padding: 12px 0; }
 .ask-ai-setup select { flex: 1; }
 /* answers can be long (several recommendations), so the thread grows with the page instead of squeezing messages into a fixed box */

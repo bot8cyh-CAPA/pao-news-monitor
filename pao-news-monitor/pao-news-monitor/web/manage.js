@@ -75,6 +75,7 @@
     $("#admin-view").hidden = false;
     $("#status-view").hidden = true;
     $("#brief-view").hidden = true;
+    $("#ask-view").hidden = true;
     document.querySelector(".filters").hidden = true;
     document.querySelector(".layout").hidden = true;
     window.scrollTo(0, 0);

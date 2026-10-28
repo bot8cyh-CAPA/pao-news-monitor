@@ -2,6 +2,11 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-28 — Ask AI is now a tab inside the tracker
+- Switching between News, Weekly Brief, Ask AI and Status no longer reloads the page, and an Ask AI conversation is still there when you come back to the tab.
+- Old links and bookmarks to `ask-ai.html` forward to the new tab.
+- Nothing changes in how answers are produced (same `ask-ai` function, no redeploy needed for this).
+
 ## 2026-10-28 — Layout: Status page, account menu, and Ask AI evidence rules
 - **Top bar** is the same on every page: CAPA logo, then News, Weekly Brief, Ask AI and Status. Your name, Password, Admin (admins only) and Sign out are in the menu at the right.
 - **Status** is its own tab: last check, email inbox, sources needing a look, and every organisation's source health. Health messages no longer appear inside each PAO's box (the coloured dot stays).

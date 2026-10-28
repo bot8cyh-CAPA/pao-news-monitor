@@ -560,7 +560,7 @@
   }
 
   function openStatus() {
-    for (const sel of [".filters", ".layout", "#brief-view", "#admin-view"]) document.querySelector(sel).hidden = true;
+    for (const sel of [".filters", ".layout", "#brief-view", "#admin-view", "#ask-view"]) document.querySelector(sel).hidden = true;
     $("#status-view").hidden = false;
     renderStatus();
     window.scrollTo(0, 0);
@@ -572,8 +572,8 @@
 
   // the section buttons show which view is open
   function markNav() {
-    const brief = !$("#brief-view").hidden, status = !$("#status-view").hidden, admin = !$("#admin-view").hidden;
-    for (const [id, on] of Object.entries({ "news-btn": !brief && !status && !admin, "brief-btn": brief, "status-btn": status })) {
+    const brief = !$("#brief-view").hidden, status = !$("#status-view").hidden, admin = !$("#admin-view").hidden, ask = !$("#ask-view").hidden;
+    for (const [id, on] of Object.entries({ "news-btn": !brief && !status && !admin && !ask, "brief-btn": brief, "ask-nav": ask, "status-btn": status })) {
       const el = $("#" + id);
       el.classList.toggle("active", on);
       if (on) el.setAttribute("aria-current", "page"); else el.removeAttribute("aria-current");
@@ -632,13 +632,13 @@
     }, true);
     // top bar: News goes back from whichever view is open; Status opens its page
     $("#news-btn").addEventListener("click", () => {
-      for (const sec of ["#brief-view", "#admin-view", "#status-view"]) {
+      for (const sec of ["#brief-view", "#admin-view", "#status-view", "#ask-view"]) {
         if (!$(sec).hidden) $(sec).querySelector("button[id$='-back']").click();
       }
     });
     $("#status-btn").addEventListener("click", openStatus);
     $("#status-back").addEventListener("click", closeStatus);
-    for (const sec of ["#brief-view", "#admin-view", "#status-view"]) new MutationObserver(markNav).observe($(sec), { attributes: true, attributeFilter: ["hidden"] });
+    for (const sec of ["#brief-view", "#admin-view", "#status-view", "#ask-view"]) new MutationObserver(markNav).observe($(sec), { attributes: true, attributeFilter: ["hidden"] });
     // the profile menu closes after a choice, or when you click elsewhere
     $$(".profile-menu button").forEach((b) => b.addEventListener("click", () => ($("#profile").open = false)));
     document.addEventListener("click", (e) => { if ($("#profile").open && !$("#profile").contains(e.target)) $("#profile").open = false; });
@@ -880,8 +880,8 @@
     if (LINK.type === "invite" || LINK.type === "recovery") { openPassword(LINK.type); LINK.type = ""; }
     await reload();
     state.openFromHash?.();
-    // links from the other pages land on a view: index.html#brief, #status, #admin, #password
-    const views = { "#brief": "#brief-btn", "#status": "#status-btn", "#admin": "#admin-btn" };
+    // links from the other pages land on a view: index.html#brief, #ask, #status, #admin, #password
+    const views = { "#brief": "#brief-btn", "#ask": "#ask-nav", "#status": "#status-btn", "#admin": "#admin-btn" };
     if (views[location.hash]) $(views[location.hash]).click();
     if (location.hash === "#password") openPassword("change");
   }
