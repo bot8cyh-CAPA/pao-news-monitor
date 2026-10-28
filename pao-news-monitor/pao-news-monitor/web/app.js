@@ -548,6 +548,9 @@
       .map((p) => ({ p, hs: healthFor(p.id).filter((h) => STATUS_SOURCES.includes(h.src)) }));
     const issues = rows.flatMap(({ p, hs }) => hs.filter((h) => h.level === "error" || h.level === "warn").map((h) => ({ p, h })));
     $("#st-issues").textContent = issues.length ? String(issues.length) : "None";
+    const countChip = $("#st-issues-count");
+    countChip.textContent = issues.length ? String(issues.length) : "None";
+    countChip.className = "chip " + (issues.some(({ h }) => h.level === "error") ? "error" : issues.length ? "warn" : "ok");
     $("#st-issues-list").innerHTML = issues.length
       ? issues.map(({ p, h }) => `<li class="status-item ${h.level}"><b>${esc(p.abbr || p.name)}</b> · ${esc(SOURCE_LABEL[h.src])}: ${esc(h.text)}${h.when ? ` <span class="muted small">(checked ${ago(h.when)})</span>` : ""}</li>`).join("")
       : `<li class="muted">Every source is running normally.</li>`;

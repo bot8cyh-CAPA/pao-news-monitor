@@ -99,6 +99,14 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .status-card { display: grid; gap: 4px; }
 .status-card strong { font-size: 24px; font-weight: 600; }
 .status-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+/* "Needs a look" folds shut: the count in the header says how many */
+.status-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.status-fold > summary::-webkit-details-marker { display: none; }
+.status-fold > summary h3 { margin: 0; }
+.status-fold > summary::after { content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg); transition: transform .15s ease; }
+.status-fold[open] > summary::after { transform: rotate(-135deg); }
+.status-fold .status-list { margin-top: 12px; }
 .status-item { padding: 8px 12px; border-radius: 8px; font-size: 14px; }
 .status-item.warn { background: var(--warn-soft); }
 .status-item.error { background: var(--error-soft); }
