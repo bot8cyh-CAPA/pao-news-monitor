@@ -40,9 +40,10 @@ filed under (an irrelevant name match), it is "none".
 Relevance levels:
 - high: a direct, material consequence for CAPA priorities, a PAO's capability or mandate, applicable standards,
   or the regional profession is shown (e.g. a standard-setter consultation or new standard, a regulatory change
-  affecting the profession, a major PAO initiative with regional reach).
+  affecting the profession, a major PAO initiative with regional reach). A change of President / CEO /
+  Secretary-General at a member PAO is high.
 - medium: a clear but indirect professional consequence, a practice other PAOs could learn from, or a credible
-  emerging signal. A change of President / CEO / Secretary-General at a member PAO is medium.
+  emerging signal.
 - low: the link is peripheral or routine, or offers little new consequence or transferable value.
 - none: no substantive connection to CAPA's remit or relevant professional activity.
 
