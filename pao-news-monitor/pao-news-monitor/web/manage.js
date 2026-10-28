@@ -300,15 +300,47 @@
       roleUse = {};
       for (const p of people) roleUse[p.role] = (roleUse[p.role] || 0) + 1;
       document.querySelectorAll("#roles-table tbody tr").forEach((tr, i) => { const r = roleRows[i]; if (r && tr.cells[tr.cells.length - 2]) tr.cells[tr.cells.length - 2].textContent = roleUse[r.name] || 0; });
-      $("#people-table").innerHTML = `<thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Role last changed</th></tr></thead>
+      $("#people-table").innerHTML = `<thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Role last changed</th><th></th></tr></thead>
         <tbody>${people.map((p) => `<tr class="${p.role === "removed" ? "inactive" : ""}">
           <td>${esc(p.email)}${p.email === me() ? " <span class='muted small'>(you)</span>" : ""}</td>
           <td><select data-role-for="${esc(p.email)}">${Object.entries(ROLES).map(([r, label]) => `<option value="${r}"${p.role === r ? " selected" : ""}>${label}</option>`).join("")}</select></td>
           <td class="muted small">${p.role === "removed" ? "Access removed" : p.signed_up === false ? "Not signed up yet" : p.last_sign_in_at ? "Last signed in " + new Date(p.last_sign_in_at).toLocaleDateString() : "Signed up"}</td>
           <td class="muted small">${p.role_updated_by ? `${esc(p.role_updated_by)}, ${new Date(p.role_updated_at).toLocaleDateString()}` : ""}</td>
+          <td>${p.email === me() ? "" : `<button class="link small danger" type="button" data-person-delete="${esc(p.email)}" data-signed-up="${p.signed_up === false ? "0" : "1"}">Delete</button>`}</td>
         </tr>`).join("")}</tbody>`;
     } catch (e) { $("#people-table").innerHTML = `<tbody><tr><td class="error-box">${esc(friendly(e))}</td></tr></tbody>`; }
   }
+  // Delete a row (update-16.sql). Someone who already signed up keeps their Supabase login, so they stay
+  // listed as "Access removed" (still no access) until the login is deleted in Supabase > Authentication > Users.
+  async function deletePerson(email) {
+    if (A.DEMO) {
+      const p = demoPeople.find((x) => x.email === email);
+      if (p && p.role === "admin" && !demoPeople.some((x) => x.role === "admin" && x.email !== email)) throw new Error("There must always be at least one admin");
+      demoPeople = demoPeople.filter((x) => x.email !== email || x.signed_up);
+      if (p && p.signed_up) p.role = "removed";
+      return;
+    }
+    const { error } = await A.db.rpc("delete_person", { target_email: email });
+    if (error) {
+      if (/delete_person|function .* does not exist|Could not find/i.test(error.message)) throw new Error("Deleting needs a quick database update: paste supabase/update-16.sql into Supabase > SQL Editor and Run.");
+      throw error;
+    }
+  }
+  $("#people-table").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-person-delete]");
+    if (!b) return;
+    const email = b.dataset.personDelete, signedUp = b.dataset.signedUp === "1";
+    const msg = signedUp
+      ? `Delete ${email}?\n\nThey have already signed up, so their login still exists: they'll stay listed as "Access removed" (they can't see anything). To remove the login completely, delete it in Supabase > Authentication > Users.`
+      : `Delete ${email} from the list? They haven't signed up, so this removes them completely. You can add them again any time.`;
+    if (!confirm(msg)) return;
+    try {
+      await deletePerson(email);
+      A.toast(`${email} deleted`);
+      showPeople();
+    } catch (err) { A.toast("Couldn't delete: " + friendly(err), true); }
+  });
+
   async function setRole(email, role) {
     if (A.DEMO) {
       const p = demoPeople.find((x) => x.email === email);

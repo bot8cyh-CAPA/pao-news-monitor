@@ -41,12 +41,12 @@ Open it with **Weekly Brief** in the top bar. Team members can **Edit** it; an a
 
 **Sending it:** admins keep a **Mailing list** on the Admin tab (add one by one, or paste many from Outlook/Excel; pause or remove anyone). On an approved brief, **Send to mailing list… → Send now** queues it; within about 10 minutes it's emailed from the monitor's Gmail as "CAPA News Monitor", with everyone in **BCC** and replies going to the admin who pressed Send. The brief then shows who sent it, when and to how many (or the error, if sending failed). Change of mind before it goes? **Cancel sending**. The staff-only "draft written by AI" banner is replaced by a short note that it was prepared with AI and reviewed by CAPA staff. Prefer to send it yourself? The same box has **send it from your own Outlook** (copies the brief and opens Outlook with the list in BCC).
 
-Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql`, `update-7.sql`, `update-8.sql`, `update-9.sql`, `update-10.sql`, `update-11.sql`, `update-12.sql`, `update-13.sql`, `update-14.sql` and `update-15.sql` once.
+Setup: run `supabase/update-4.sql`, `update-5.sql`, `update-6.sql`, `update-7.sql`, `update-8.sql`, `update-9.sql`, `update-10.sql`, `update-11.sql`, `update-12.sql`, `update-13.sql`, `update-14.sql`, `update-15.sql` and `update-16.sql` once.
 
 ## Roles and permissions
 Admins manage these on the **Admin** tab.
 - **Roles:** create a role (e.g. "Comms team") and tick what it may do: *Tag items*, *Add items* (incl. Import and screenshots), *Edit briefs*, *Approve briefs*, *Send briefs*, *Mailing list*, *Members*. **Admin** always has everything and can't be changed. **Team** (tag, add, edit briefs) and **Viewer** (read and export only) are ready-made and editable. A role can be deleted once nobody has it.
-- **People:** type an email, pick a role, **Give access**; they then click **First time here** on the tracker to create their password. Change anyone's role, or pick **No access**. There must always be at least one admin.
+- **People:** type an email, pick a role, **Give access**; they then click **First time here** on the tracker to create their password. Change anyone's role, or pick **No access**. **Delete** removes someone from the list (needs `supabase/update-16.sql`): someone who never signed up disappears completely; someone who already signed up stays listed as *Access removed* until you also delete their login in Supabase → **Authentication → Users**. You can't delete yourself, and there must always be at least one admin.
 - Only admins can manage people and roles. People see only the buttons and Admin-tab sections their role allows, and the database enforces the same rules.
 
 ## Members (the PAO list)
@@ -194,7 +194,7 @@ To change what the AI is told about CAPA or how it should reason about collabora
 
 (For example, moving from the test account to CAPA's main account.) From 30 October 2026 Supabase no longer gives new tables any access automatically, so a new project needs **every** setup file, in order (`update-13.sql` spells out all table permissions), then `update-14.sql` and `update-15.sql`:
 
-1. In the new project's **SQL Editor**, run `supabase/schema.sql`, then `update-2.sql` through `update-15.sql`, one at a time, in number order.
+1. In the new project's **SQL Editor**, run `supabase/schema.sql`, then `update-2.sql` through `update-16.sql`, one at a time, in number order.
 2. Put the new project's URL and keys in `web/config.js` and in the GitHub Actions secrets (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`).
 3. Set up Ask AI again (see *Ask AI setup*), using the new project's ref in the `supabase link` / `deploy` commands.
 4. Re-add staff on **Admin > People**, and the mailing list.
