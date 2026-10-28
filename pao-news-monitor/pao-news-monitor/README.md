@@ -35,7 +35,7 @@ Every **Monday at about 7:45am** (Malaysia time) a separate job reads the past w
 1. tags each item with themes (AI & digitalisation, Talent, Sustainability, Ethics & standards) and a one-line English summary. These also appear on the news cards.
 2. writes a draft brief: **Open for comment** (consultations with deadlines), **Key developments** (staff *High* items, by theme, with *what happened*, *regional implications* and *suggested CAPA actions* - kept realistic by the rules in `collector/capa_context.py`), **Other updates** (staff *Medium* items), **Leadership changes** (for congratulation letters), **Upcoming events and deadlines**, **No news found this week**, and a numbered **Sources** list. Every fact links to its source item.
 
-Open it with **Weekly brief** at the top of the tracker. Team members can **Edit** it; an admin **Approves** it. **Copy for email** copies it with formatting for an Outlook email; **Download Word** gives a .doc file. Nothing is sent automatically. To make one now: **Actions → Weekly brief → Run workflow**.
+Open it with **Weekly Brief** in the top bar. Team members can **Edit** it; an admin **Approves** it. **Copy for email** copies it with formatting for an Outlook email; **Download Word** gives a .doc file. Nothing is sent automatically. To make one now: **Actions → Weekly brief → Run workflow**.
 
 **AI used (free):** add at least one key as a repository secret (GitHub → Settings → Secrets and variables → Actions). It tries them in this order and moves on when a model's free quota runs out: `GEMINI_API_KEY` (Google AI Studio, free tier), `GROQ_API_KEY` (console.groq.com, free plan), `CF_ACCOUNT_ID` + `CF_AI_TOKEN` (Cloudflare Workers AI, free daily allowance), and as a last resort `OPENROUTER_API_KEY` (openrouter.ai, free models). Only titles and short snippets of public news are sent - never your notes. Up to 280 items a week are AI-tagged (relevant, leadership, websites and emails first). If no model is available, the brief is saved as a plain list of the week's items instead. The brief shows which model wrote it.
 
@@ -119,8 +119,8 @@ In Supabase, go to **Authentication → Users → Invite user** and invite each 
 - Pages scanned for the first time (e.g. a newly found Publications page) are saved as **first scan**, so old publications don't flood in as new.
 - Each item has a **type** (News / Event / Publication). It's set automatically; change it with the little dropdown on the item if it's wrong. Use the type tick-boxes in the filter bar to show only what you need.
 - **Translate** translates the headline (works for every source). **Translate page** opens the whole website page translated.
-- The **coloured dots** in the sidebar show health: green means fine, amber means needs a look, red means a source failed. The red/amber notes inside each PAO's box say exactly what's wrong.
-- An amber "**No new links for 60+ days**" note means that site may have changed in a way that hides new posts. Open the site and check.
+- The **Status** tab shows when the last check ran, whether the email inbox is working, and every source's health. **Needs a look** lists what's wrong: a failed source, or a site with **No new links for 60+ days**, which may mean the site changed in a way that hides new posts. Open the site and check.
+- The coloured dot beside each PAO shows the same health: green fine, amber needs a look, red a source failed.
 - **Export CSV** downloads exactly what's on screen. Set "Show: All tagged" and the period first to get your newsletter shortlist.
 
 ## Fixing things yourself (no coding)

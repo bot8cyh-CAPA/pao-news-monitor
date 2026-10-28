@@ -47,6 +47,8 @@
     if (!user) return false;
     const r = await db.rpc("my_role");
     role = r.error ? "team" : (r.data || "team");
+    document.querySelector("#signout").addEventListener("click", async () => { await db.auth.signOut(); location.href = "index.html"; });
+    if (role === "admin") document.querySelector("#admin-link").hidden = false;
     const p = await db.rpc("my_permissions");
     canSave = role === "admin" || (!p.error && Array.isArray(p.data) ? p.data.includes("add_items") : role === "team");
     const { data: list, error } = await db.from("paos").select("*").eq("active", true).neq("id", "_unmatched_email").order("sort_order");

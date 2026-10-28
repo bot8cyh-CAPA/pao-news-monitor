@@ -28,10 +28,12 @@
     const { data } = await db.auth.getSession();
     if (!data.session?.user) { $("#signin-needed").hidden = false; return; }
     $("#user").textContent = data.session.user.email;
+    $("#signout").addEventListener("click", async () => { await db.auth.signOut(); location.href = "index.html"; });
 
     const { data: perms, error: permErr } = await db.rpc("my_permissions");
     if (permErr) { $("#not-set-up").hidden = false; return; }
     const { data: role } = await db.rpc("my_role");
+    if (role === "admin") $("#admin-link").hidden = false;
     if (role !== "admin" && !(perms || []).includes("ask_ai")) { $("#no-perm").hidden = false; return; }
 
     const { data: paoRows, error: paoErr } = await db.from("paos").select("id,name,abbr,jurisdiction,grp").eq("active", true).order("sort_order");
@@ -146,7 +148,9 @@
         body.map((r) => `<tr>${cells(r).map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
       table = [];
     };
-    for (const raw of esc(s).split("\n")) {
+    // models sometimes write HTML line breaks: turn them into real breaks (a space inside table rows)
+    const fixed = s.split("\n").map((l) => l.replace(/<br\s*\/?>/gi, l.trimStart().startsWith("|") ? " " : "\n")).join("\n");
+    for (const raw of esc(fixed).split("\n")) {
       const line = raw.trim();
       let m;
       if (line.startsWith("|")) { flushPara(); closeList(); table.push(line); continue; }

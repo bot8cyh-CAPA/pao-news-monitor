@@ -2,6 +2,12 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-28 — Layout: Status page, account menu, and Ask AI evidence rules
+- **Top bar** is the same on every page: CAPA logo, then News, Weekly Brief, Ask AI and Status. Your name, Password, Admin (admins only) and Sign out are in the menu at the right.
+- **Status** is its own tab: last check, email inbox, sources needing a look, and every organisation's source health. Health messages no longer appear inside each PAO's box (the coloured dot stays).
+- **Filter bar** now holds OCR, Import, Refresh and Search (the magnifier opens a search box).
+- **Ask AI** answers: line breaks written as HTML are shown as real breaks; answers must state only what the collected items say, use the items' dates, and label anything else as general background. This needs the `ask-ai` function redeployed to take effect.
+
 ## 2026-10-26 — Ask AI: "Whole region" questions, and cleaner article picking
 **Whole region (all PAOs):** a new first option in Ask AI's picker. Ask things like "how are PAOs approaching AI adoption, and what concerns are they raising?" and it answers across the whole network, naming which PAO each point comes from (the Sources list shows the PAO too).
 - How it picks articles: from everything collected in the last 12 months, it finds items matching your question (using the themes the brief already tags, like "AI & digitalisation", plus words from your question), most important first, **at most 4 per PAO** so one busy PAO can't drown out the rest, 30 in total.

@@ -73,9 +73,10 @@
   // ================= Admin tab =================
   function openAdmin() {
     $("#admin-view").hidden = false;
+    $("#status-view").hidden = true;
+    $("#brief-view").hidden = true;
     document.querySelector(".filters").hidden = true;
     document.querySelector(".layout").hidden = true;
-    document.querySelector("#search-wrap").hidden = true;
     window.scrollTo(0, 0);
     $("#panel-people").hidden = $("#panel-roles").hidden = !isAdmin();
     $("#panel-mailing").hidden = !can("manage_mailing_list");

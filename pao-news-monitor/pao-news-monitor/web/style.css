@@ -6,6 +6,7 @@
   --line: #e2e0d8;
   --accent: #0e5a57;
   --accent-soft: #e3efee;
+  --brand: #d7262e;   /* CAPA red: the active section tab */
   --ok: #2f7d4f;
   --warn: #b7791f;
   --warn-soft: #fbf1df;
@@ -60,14 +61,47 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .login-card p { margin: 0; color: var(--muted); }
 .login-msg { min-height: 1.5em; }
 
-/* top bar */
+/* top bar: logo, section tabs, account menu (the same on every page) */
 .topbar {
-  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 14px 24px 8px; background: var(--panel);
+  display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+  padding: 10px 24px; background: var(--panel); border-bottom: 1px solid var(--line);
 }
-.brand { display: flex; align-items: center; gap: 20px; }
-.brand h1 { font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+.brand { display: flex; align-items: center; flex: none; color: inherit; text-decoration: none; }
 .brand-logo { height: 52px; width: auto; display: block; }
+.nav-tab {
+  font: inherit; font-size: 17px; font-weight: 500; color: var(--ink); background: none; border: 0; cursor: pointer;
+  padding: 10px 14px 8px; border-bottom: 3px solid transparent; text-decoration: none; white-space: nowrap;
+}
+.nav-tab:hover { color: var(--brand); }
+.nav-tab[aria-current="page"], .nav-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+.nav-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* account menu */
+.profile { position: relative; margin-left: auto; flex: none; }
+.profile summary { list-style: none; cursor: pointer; }
+.profile summary::-webkit-details-marker { display: none; }
+.profile-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; }
+.profile-btn:hover { background: var(--accent-soft); }
+.profile[open] .profile-btn .chev { transform: rotate(180deg); }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: #e6e5e0; color: #9a998f; display: grid; place-items: center; }
+.profile-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 230px; display: grid; gap: 2px; padding: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+}
+.profile-email { margin: 6px 10px 8px; overflow-wrap: anywhere; }
+.menu-item { font: inherit; font-size: 15px; text-align: left; background: none; border: 0; padding: 9px 12px; border-radius: 6px; color: var(--ink); cursor: pointer; }
+.menu-item:hover, .menu-item:focus-visible { background: var(--accent-soft); outline: none; }
+.icon-btn { padding: 6px 9px; display: inline-grid; place-items: center; }
+
+/* Status page */
+.status-view { max-width: 1150px; margin: 0 auto; padding: 16px 20px 40px; display: grid; gap: 16px; }
+.status-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.status-card { display: grid; gap: 4px; }
+.status-card strong { font-size: 24px; font-weight: 600; }
+.status-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.status-item { padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+.status-item.warn { background: var(--warn-soft); }
+.status-item.error { background: var(--error-soft); }
 /* the logo has black lettering: give it a white plate on dark backgrounds */
 @media (prefers-color-scheme: dark) { .brand-logo { background: #fff; padding: 4px 8px; border-radius: 6px; box-sizing: content-box; } }
 .brand p { margin: 0; }
@@ -78,22 +112,22 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible { outline: 2px sol
 .demo-banner { background: var(--warn-soft); color: var(--ink); padding: 8px 20px; font-size: 14px; border-bottom: 1px solid var(--line); }
 
 /* filters */
-/* second row: section buttons + search */
-.navbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 6px 24px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
-.nav-links .btn { font-size: 15px; padding: 7px 14px; }
-.nav-search { position: relative; display: flex; align-items: center; flex: 0 1 300px; min-width: 200px; }
-.nav-search input { width: 100%; border: 1.5px solid var(--ink); border-radius: 999px; padding: 7px 38px 7px 14px; font: inherit; font-size: 14px; background: var(--panel); color: var(--ink); }
-.nav-search svg { position: absolute; right: 12px; color: var(--ink); pointer-events: none; }
+/* search: a magnifier that opens into a box when you click it or type in it */
+.search { position: relative; display: inline-flex; align-items: center; gap: 0; cursor: pointer; }
+.search input { width: 0; padding: 0; border: 1.5px solid transparent; border-radius: 999px; opacity: 0; font: inherit; font-size: 14px;
+  background: var(--panel); color: var(--ink); transition: width .2s ease; }
+.search:focus-within input, .search input:not(:placeholder-shown) { width: 220px; padding: 6px 12px; opacity: 1; border-color: var(--ink); }
+.search svg { color: var(--ink); pointer-events: none; margin-left: 2px; }
 
 /* third row: filters (sticks to the top while scrolling) */
 .filters {
-  position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+  position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   padding: 10px 24px; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--line); font-size: 14px;
 }
 .filters label { display: inline-flex; align-items: center; gap: 6px; }
+.filters #f-status { max-width: 240px; }
+.page-intro { max-width: 1150px; margin: 14px auto 0; padding: 0 20px; }
 .filters-end { margin-left: auto; display: flex; gap: 8px; }
 
 /* Scan type / News type: checkbox menus that look like the other dropdowns */

@@ -15,6 +15,14 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { COLLABORATION_GUIDELINES } from "./capa_context.ts";
 import { dedupe, type Item, pickForTopic, questionWindowDays, rank, when, withinDays } from "./select.ts";
 
+// Evidence rules (added after a whole-region answer invented a membership count and called an item "today"):
+// the model may only assert what the numbered items say, and must use their dates.
+const EVIDENCE_RULES = `Evidence rules: state only what the numbered items say. Do not add figures, counts, membership \
+numbers or background facts that no item supports (for example how many organisations a development affects, or what \
+a publication "usually" leads to). If you add general knowledge, put it under the heading "General background (not from \
+the items)". Use the dates shown in the item list; do not call an item "today" or "yesterday" unless its date says so. \
+Write plain text, lists and tables. Never write HTML tags such as <br>.`;
+
 const REGION = "_region";   // pao_id the page sends for "Whole region (all PAOs)"
 const MAX_TURNS = 15;        // user+assistant pairs per thread before the UI must start a new one
 // Prompt size matters: Groq's free tier caps tokens per minute, and an oversized prompt is refused
@@ -209,6 +217,8 @@ PAOs and key stakeholders in Asia-Pacific and international bodies such as IFAC 
 
 ${COLLABORATION_GUIDELINES}
 
+${EVIDENCE_RULES}
+
 Whole-region questions: where the guidelines above talk about "the PAO", apply them across the organisations in \
 the items. Compare and contrast: name which organisations are doing what, note common patterns and differences, and \
 say where only one or two organisations show evidence. Each item starts with the organisation's abbreviation.
@@ -223,6 +233,8 @@ ${numbered.length ? numbered.join("\n\n") : windowDays ? "(Nothing was collected
 ${pao!.name} (${pao!.abbr ?? pao!.id}), ${pao!.grp ?? "Member"}, ${pao!.jurisdiction ?? "jurisdiction unknown"}.
 
 ${COLLABORATION_GUIDELINES}
+
+${EVIDENCE_RULES}
 
 Collected items about ${pao!.name} (most recent first, numbered for citation; this is ALL the \
 evidence you have - you cannot browse the web):

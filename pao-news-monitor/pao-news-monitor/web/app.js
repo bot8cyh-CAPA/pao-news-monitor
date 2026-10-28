@@ -285,7 +285,7 @@
 
   function healthFor(paoId) {
     const rows = state.health.filter((h) => h.pao_id === paoId);
-    return ["website", "page_watch", "google_news", "newsapi"].map((src) => {
+    return ["website", "page_watch", "google_news"].map((src) => {
       const h = rows.find((r) => r.source === src);
       if (!h) return src === "page_watch" ? null : { src, level: "none", text: "not run yet" };
       let level = h.status === "ok" ? "ok" : h.status === "warning" ? "warn" : h.status === "error" ? "error" : "none";
@@ -360,8 +360,6 @@
             ${can("add_items") ? `<button class="btn ghost small" data-add="${esc(p.id)}" type="button">+ Add item</button>` : ""}
           </div>
         </div>
-        ${hs.length ? `<div class="health">${hs.map((h) => `<span class="chip ${h.level}" title="${esc(h.text)}">${esc(SOURCE_LABEL[h.src])}${h.when ? ` · ${ago(h.when)}` : ""}</span>`).join("")}
-          ${hs.filter((h) => h.level === "error" || h.level === "warn").map((h) => `<p class="health-note ${h.level}">${esc(SOURCE_LABEL[h.src])}: ${esc(h.text)}</p>`).join("")}</div>` : ""}
         ${items.length ? `<ol class="items">${items.map(card).join("")}</ol>` : `<p class="empty-note">Nothing found in this period.</p>`}
       </div>
     </details>`;
@@ -530,17 +528,56 @@
   }
 
   function renderHeader() {
-    const r = state.lastRun;
-    $("#last-run").textContent = r ? `Last checked ${ago(r.finished_at)} · ${r.summary?.new ?? 0} new that run` : "Not run yet";
     $("#user").textContent = (state.user?.email || "") + (state.role && state.role !== "team" ? ` (${state.role})` : "");
     document.body.dataset.role = state.role + ":" + state.perms.join(",");
+    renderStatus();
+  }
+
+  // ---------- Status page: last run, the email inbox, and every source's health ----------
+  const STATUS_SOURCES = ["website", "page_watch", "google_news"];
+  const LEVEL_TEXT = { ok: "OK", warn: "Needs a look", error: "Failed", none: "Not run yet" };
+  function renderStatus() {
+    const r = state.lastRun;
+    $("#st-last").textContent = r ? ago(r.finished_at) : "Not run yet";
+    $("#st-last-sub").textContent = r ? `${r.summary?.new ?? 0} new items in that run` : "";
     const inbox = state.health.find((h) => h.pao_id === "_inbox" && h.source === "email");
-    const el = $("#inbox-status");
-    if (!inbox) { el.hidden = true; return; }
-    el.hidden = false;
-    el.className = "chip " + (inbox.status === "ok" ? "ok" : inbox.status === "error" ? "error" : "none");
-    el.textContent = inbox.status === "error" ? "Inbox: failed" : inbox.status === "skipped" ? "Inbox: off" : "Inbox: ok";
-    el.title = inbox.message || "";
+    $("#st-inbox").textContent = !inbox ? "Not set up" : inbox.status === "error" ? "Failed" : inbox.status === "skipped" ? "Off" : "OK";
+    $("#st-inbox-sub").textContent = inbox?.message || (inbox?.last_run_at ? `Checked ${ago(inbox.last_run_at)}` : "");
+
+    const rows = state.paos.filter((p) => p.id !== "_unmatched_email" && p.active !== false)
+      .map((p) => ({ p, hs: healthFor(p.id).filter((h) => STATUS_SOURCES.includes(h.src)) }));
+    const issues = rows.flatMap(({ p, hs }) => hs.filter((h) => h.level === "error" || h.level === "warn").map((h) => ({ p, h })));
+    $("#st-issues").textContent = issues.length ? String(issues.length) : "None";
+    $("#st-issues-list").innerHTML = issues.length
+      ? issues.map(({ p, h }) => `<li class="status-item ${h.level}"><b>${esc(p.abbr || p.name)}</b> · ${esc(SOURCE_LABEL[h.src])}: ${esc(h.text)}${h.when ? ` <span class="muted small">(checked ${ago(h.when)})</span>` : ""}</li>`).join("")
+      : `<li class="muted">Every source is running normally.</li>`;
+    $("#st-table").innerHTML = `<thead><tr><th>Organisation</th>${STATUS_SOURCES.map((s) => `<th>${esc(SOURCE_LABEL[s])}</th>`).join("")}</tr></thead><tbody>` +
+      rows.map(({ p, hs }) => `<tr><td>${esc(p.name)}</td>${STATUS_SOURCES.map((s) => {
+        const h = hs.find((x) => x.src === s);
+        if (!h) return `<td><span class="muted small">-</span></td>`;
+        return `<td><span class="chip ${h.level}" title="${esc(h.text)}">${LEVEL_TEXT[h.level]}${h.when ? ` · ${ago(h.when)}` : ""}</span></td>`;
+      }).join("")}</tr>`).join("") + "</tbody>";
+  }
+
+  function openStatus() {
+    for (const sel of [".filters", ".layout", "#brief-view", "#admin-view"]) document.querySelector(sel).hidden = true;
+    $("#status-view").hidden = false;
+    renderStatus();
+    window.scrollTo(0, 0);
+  }
+  function closeStatus() {
+    $("#status-view").hidden = true;
+    for (const sel of [".filters", ".layout"]) document.querySelector(sel).hidden = false;
+  }
+
+  // the section buttons show which view is open
+  function markNav() {
+    const brief = !$("#brief-view").hidden, status = !$("#status-view").hidden, admin = !$("#admin-view").hidden;
+    for (const [id, on] of Object.entries({ "news-btn": !brief && !status && !admin, "brief-btn": brief, "status-btn": status })) {
+      const el = $("#" + id);
+      el.classList.toggle("active", on);
+      if (on) el.setAttribute("aria-current", "page"); else el.removeAttribute("aria-current");
+    }
   }
 
   // ---------- actions ----------
@@ -593,6 +630,18 @@
       d.open ? state.open.add(d.dataset.pao) : state.open.delete(d.dataset.pao);
       updateToggleAll();
     }, true);
+    // top bar: News goes back from whichever view is open; Status opens its page
+    $("#news-btn").addEventListener("click", () => {
+      for (const sec of ["#brief-view", "#admin-view", "#status-view"]) {
+        if (!$(sec).hidden) $(sec).querySelector("button[id$='-back']").click();
+      }
+    });
+    $("#status-btn").addEventListener("click", openStatus);
+    $("#status-back").addEventListener("click", closeStatus);
+    for (const sec of ["#brief-view", "#admin-view", "#status-view"]) new MutationObserver(markNav).observe($(sec), { attributes: true, attributeFilter: ["hidden"] });
+    // the profile menu closes after a choice, or when you click elsewhere
+    $$(".profile-menu button").forEach((b) => b.addEventListener("click", () => ($("#profile").open = false)));
+    document.addEventListener("click", (e) => { if ($("#profile").open && !$("#profile").contains(e.target)) $("#profile").open = false; });
     $("#toggle-all").addEventListener("click", () => {
       const all = $$("#main details.pao"), open = !all.every((d) => d.open);
       all.forEach((d) => { d.open = open; open ? state.open.add(d.dataset.pao) : state.open.delete(d.dataset.pao); });
@@ -831,6 +880,10 @@
     if (LINK.type === "invite" || LINK.type === "recovery") { openPassword(LINK.type); LINK.type = ""; }
     await reload();
     state.openFromHash?.();
+    // links from the other pages land on a view: index.html#brief, #status, #admin, #password
+    const views = { "#brief": "#brief-btn", "#status": "#status-btn", "#admin": "#admin-btn" };
+    if (views[location.hash]) $(views[location.hash]).click();
+    if (location.hash === "#password") openPassword("change");
   }
 
   // keep section jumps clear of the sticky filter bar
