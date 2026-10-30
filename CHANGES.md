@@ -2,6 +2,14 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-30 — Background profiles for PAOs (pilot: 3)
+- Each PAO can now have a short **background profile**: who they are, their leaders, what they are doing now, how they connect to CAPA, what is not known, and the public sources behind each line, with a "last checked" date.
+- **Ask AI** gives the profile to the AI as "Background on file", kept separate from the numbered news items. So a question like "profile CA Sri Lanka" can use it. The AI is told to label these facts "(background on file)", say how old they are, and say plainly what the profile doesn't cover.
+- Pilot profiles are written for **CPA Australia, CA Sri Lanka and FICA (Fiji)**, drafted from public pages on 30 Oct 2026. One line (Priya Terumalay, Head of SEA, is a CAPA board member) is from CAPA staff and marked as not checked against a public page. Staff should correct anything wrong.
+- Public facts only - nothing confidential goes in a profile. Whole-region questions don't use profiles yet.
+- Profiles can't be edited on the Members screen yet; for now they are set with SQL.
+- Needs: (1) run `supabase/update-17.sql` once in the SQL Editor, (2) redeploy Ask AI from PowerShell - same command as before.
+
 ## 2026-10-28 — Admin > People: Delete button
 - Admins can delete a row on **Admin > People** (for example a typo or a test email), not only set it to **No access**.
 - Never signed up: the row disappears completely. Already signed up: their login still exists, so they stay listed as *Access removed* (still no access) until the login is deleted in Supabase > Authentication > Users. The web page can't delete logins, because that needs the secret key.
