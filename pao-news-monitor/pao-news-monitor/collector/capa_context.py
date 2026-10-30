@@ -65,6 +65,36 @@ realistically give, say so, or scale it down.
 """
 
 
+# Public facts about CAPA itself (drafted by GPT from CAPA's website and IFAC on 30 Oct 2026; CAPA staff to
+# check it). Ask AI only - not used for tagging, to keep those prompts short. Update the date when you edit it.
+CAPA_BACKGROUND = """\
+CAPA background on file (as of 30 October 2026, from CAPA's website and IFAC; may be out of date):
+- History: grew from the first Far East Conference of Accountants (Manila, 1957); charter and present name 1976; \
+registered in Hong Kong in 2001 as a company limited by guarantee; secretariat in Kuala Lumpur since 1994 (temporary \
+Executive Office from 1 March 2026). IFAC recognises CAPA as its Asia-Pacific regional organisation and Network Partner.
+- Members: 31 accountancy organisations in 22 jurisdictions (Members, Associates, Affiliates), including CA Maldives \
+(approved as a Member in September 2026) and HKICPA.
+- Governance: President Jhun Yong-Sok (KICPA) and Deputy President Gerard B. Sanvictores (PICPA), both since 3 December \
+2025. Chief Executive Jennifer Lopez (since 15 September 2025). Directors 2025-2027: Priya Terumalay (CPA Australia), \
+Md Shahadat Hossain (ICAB), Wan Wenxiang (CICPA), Hisashi Sato (JICPA), Kim Dong-Chul (KICPA), Aniket Sunil Talati \
+(ICAI), Yuddha Raj Oli (ICAN), Peter Vial (CA ANZ), Richard Kuna (CPA PNG), Tishan Subasinghe (CA Sri Lanka), \
+Jim Knafo (AICPA/CIMA).
+- Committees and groups 2024-2027 (chair): Governance and Audit Committee (Dr Tran Khanh Lam); Member Development \
+Committee (Andrew Conway, IPA); Accounting, Reporting and Assurance Coordinating Committee (Chiew Chun Wee); Public \
+Sector Advisory Group (Md. Abdur Rahman Khan).
+- Strategy 2024-2028: deeper member and stakeholder engagement, a broader and more agile focus, using existing thought \
+leadership, and stronger CAPA visibility. Programmes: PAO development (Maturity Model and guidance), ethics, PAO \
+success and sustainability, public-sector financial management, accounting technicians, research, technical \
+dialogue, webinars.
+- Events: Members Meetings, AGM/EGM, Chief Executive Network, roundtables, webinars, workshops. Next: Members Meeting \
+and EGM in Seoul on 21 November 2026, alongside the World Congress of Accountants. No next CAPA Conference date published.
+- Partners: collaborates with AFA and SAFA; convenes regional input to IAASB, IESBA and IPSASB; works with IASB/ISSB; \
+ADB and the World Bank are development partners (the World Bank co-led MOSAIC with IFAC on PAO capacity).
+- Not known publicly: start dates of most directors and committee chairs; a permanent office to replace the temporary \
+one; the next CAPA Conference.
+"""
+
+
 # Verbatim from the CAPA team's own guidelines document (2026-10-21), used as the system
 # instructions for the Ask AI feature. See _bmad-output/.../ask-ai-architecture.md for how
 # this is used and its guardrails (internal collection only, no claimed web research).
@@ -73,7 +103,7 @@ Guidelines for Identifying Potential Areas of Collaboration with CAPA
 
 1. Background on CAPA
 
-""" + CAPA_PROFILE + """
+""" + CAPA_PROFILE + "\n" + CAPA_BACKGROUND + """
 
 2. Objective
 

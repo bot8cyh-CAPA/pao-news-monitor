@@ -12,7 +12,7 @@ ASK = (ROOT / "supabase" / "functions" / "ask-ai" / "index.ts").read_text()
 
 def test_every_profiled_pao_exists():
     ids = set(re.findall(r"where id = '([^']+)'", SQL))
-    assert ids == {"cpa-australia", "ca-sri-lanka", "fica"}
+    assert len(ids) == 23 and {"cpa-australia", "ca-sri-lanka", "fica", "iaasb", "safa"} <= ids
     assert ids <= {p.id for p in load_paos()}
 
 
@@ -23,10 +23,10 @@ def test_sql_is_safe_to_run_twice():
 
 def test_every_card_has_sources_and_a_checked_date():
     cards = re.findall(r"\$card\$(.*?)\$card\$", SQL, flags=re.S)
-    assert len(cards) == 3
+    assert len(cards) == 23
     for c in cards:
         assert "SOURCES:" in c and "NOT KNOWN:" in c
-    assert SQL.count("profile_checked = date '2026-10-30'") == 3
+    assert SQL.count("profile_checked = date '2026-10-30'") == 23
 
 
 def test_staff_provided_fact_is_labelled_as_such():
@@ -36,3 +36,14 @@ def test_staff_provided_fact_is_labelled_as_such():
 def test_ask_ai_reads_and_labels_the_profile():
     assert "profile,profile_checked" in ASK and "profileBlock(pao!)" in ASK
     assert '"(background on file)"' in ASK or "(background on file)" in ASK
+
+
+def test_fica_has_the_2026_president():
+    assert "Ravinesh Singh became President" in SQL
+
+
+def test_capa_background_reaches_ask_ai_but_not_tagging():
+    from collector import capa_context
+    assert "Jhun Yong-Sok" in capa_context.COLLABORATION_GUIDELINES
+    assert "Jhun Yong-Sok" not in capa_context.CAPA_PROFILE          # tagging prompt stays short
+    assert "Jhun Yong-Sok" in (ROOT / "supabase" / "functions" / "ask-ai" / "capa_context.ts").read_text()

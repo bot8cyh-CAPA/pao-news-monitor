@@ -2,10 +2,11 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
-## 2026-10-30 — Background profiles for PAOs (pilot: 3)
+## 2026-10-30 — Background profiles for PAOs, and CAPA's own background in Ask AI
 - Each PAO can now have a short **background profile**: who they are, their leaders, what they are doing now, how they connect to CAPA, what is not known, and the public sources behind each line, with a "last checked" date.
 - **Ask AI** gives the profile to the AI as "Background on file", kept separate from the numbered news items. So a question like "profile CA Sri Lanka" can use it. The AI is told to label these facts "(background on file)", say how old they are, and say plainly what the profile doesn't cover.
-- Pilot profiles are written for **CPA Australia, CA Sri Lanka and FICA (Fiji)**, drafted from public pages on 30 Oct 2026. One line (Priya Terumalay, Head of SEA, is a CAPA board member) is from CAPA staff and marked as not checked against a public page. Staff should correct anything wrong.
+- Profiles are written for **23 organisations**: 15 member PAOs (CPA Australia, IPA, ICAB, ICMAB, FICA, ICAI, ICMAI, JICPA, MonICPA, ICAN, CA ANZ, ICMA Pakistan, PICPA, CPA PNG, CA Sri Lanka), IFAC, the IASB, ISSB, IESBA, IPSASB and IAASB, and AFA and SAFA. Drafted from public pages on 30 Oct 2026 (mostly by GPT), then spot-checked. Staff should correct anything wrong; the other member PAOs (CICPA, HKICPA, KICPA, CA Maldives, ICAP, SIA, AATSL, CMASL, AICPA, VACPA) have no profile yet.
+- Ask AI also gets a short **CAPA background**: history, members, board, committees, strategy, events and partners (as of 30 Oct 2026, from CAPA's website). The tagging prompts are unchanged.
 - Public facts only - nothing confidential goes in a profile. Whole-region questions don't use profiles yet.
 - Profiles can't be edited on the Members screen yet; for now they are set with SQL.
 - Needs: (1) run `supabase/update-17.sql` once in the SQL Editor, (2) redeploy Ask AI from PowerShell - same command as before.
