@@ -44,6 +44,7 @@
   $("#ask-nav").addEventListener("click", open);
   $("#ask-back").addEventListener("click", close);
   $("#ai-new").addEventListener("click", () => { threadId = null; messages = []; $("#ai-new").disabled = true; render(); });
+  $("#ai-download").addEventListener("click", download);
   $("#ai-pao").addEventListener("change", () => { threadId = null; messages = []; placeholder(); render(); });
   $("#ai-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -90,10 +91,33 @@
       const cited = meta ? `<p class="muted small">${esc(meta)}</p>` : "";
       return `<div class="ai-msg ai-assistant">${escMd(m.content, m.sources)}${sourcesList(m.sources)}${cited}</div>`;
     }).join("") || `<p class="empty-note">Ask a question about the selected PAO - e.g. "What's changed recently?" or "What are possible routes of collaboration?"</p>`;
+    $("#ai-download").disabled = !messages.some((m) => m.role === "assistant");
     $("#ai-note").textContent = threadId ? "Replies continue this conversation. Start a new question to begin a fresh one." : "";
     // bring the newest message into view from its top, so a long answer is read from the start
     const last = $("#ai-thread").lastElementChild;
     if (last && messages.length) last.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // Download the conversation as a text file, with each answer's sources listed under it.
+  // Plain text opens in Word, so no Word-specific file is needed.
+  function download() {
+    const pao = $("#ai-pao").selectedOptions[0]?.textContent || "";
+    const lines = [`CAPA Ask AI - ${pao}`, `Downloaded ${new Date().toLocaleString("en-GB", { timeZone: "Asia/Kuala_Lumpur" })} (MYT)`,
+      "Answers are based on collected items and background on file. Check sources before use.", ""];
+    for (const m of messages) {
+      if (m.role === "user") lines.push("YOU:", m.content, "");
+      else if (m.role === "assistant") {
+        lines.push("ANSWER" + (m.model ? ` (${m.model})` : "") + ":", m.content, "");
+        (m.sources || []).forEach((src, i) => lines.push(`  [${i + 1}] ${src.title || ""} - ${src.url || ""}`.trimEnd()));
+        if ((m.sources || []).length) lines.push("");
+      }
+    }
+    const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `capa-ask-ai-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   // Only ever link to http(s) addresses - never javascript: or other schemes.
