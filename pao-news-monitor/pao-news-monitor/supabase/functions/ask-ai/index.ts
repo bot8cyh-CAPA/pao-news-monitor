@@ -17,11 +17,25 @@ import { dedupe, type Item, pickForTopic, questionWindowDays, rank, when, within
 
 // Evidence rules (added after a whole-region answer invented a membership count and called an item "today"):
 // the model may only assert what the numbered items say, and must use their dates.
-const EVIDENCE_RULES = `Evidence rules: state only what the numbered items say. Do not add figures, counts, membership \
+const EVIDENCE_RULES = `Evidence rules: state only what the numbered items say (and, when a "Background on file" section is \
+given for the organisation, what that section says). Do not add figures, counts, membership \
 numbers or background facts that no item supports (for example how many organisations a development affects, or what \
 a publication "usually" leads to). If you add general knowledge, put it under the heading "General background (not from \
 the items)". Use the dates shown in the item list; do not call an item "today" or "yesterday" unless its date says so. \
 Write plain text, lists and tables. Never write HTML tags such as <br>.`;
+
+// Staff-written background on one PAO (who they are, leaders, recent activity), kept apart from the numbered news
+// items. It is on file, not a live fact: say how old it is, and never give it an item number.
+function profileBlock(pao: { name: string; profile?: string | null; profile_checked?: string | null }): string {
+  if (!pao.profile?.trim()) return "";
+  return `
+Background on file about ${pao.name} (written by CAPA staff from public sources, last checked ${pao.profile_checked ?? "on an unknown date"}; \
+it may be out of date). Use it for questions about who the organisation is, its leaders and its usual activity. When you \
+use it, say "(background on file)" instead of an item number, mention the last-checked date if the answer depends on a \
+name or a figure, and say plainly when the question needs something it does not cover (see its NOT KNOWN line).
+${pao.profile.trim()}
+`;
+}
 
 const REGION = "_region";   // pao_id the page sends for "Whole region (all PAOs)"
 const MAX_TURNS = 15;        // user+assistant pairs per thread before the UI must start a new one
@@ -148,7 +162,7 @@ async function handle(req: Request): Promise<Response> {
   const region = pao_id === REGION;
   const { data: pao } = region
     ? { data: null }
-    : await svc.from("paos").select("id,name,abbr,jurisdiction,grp,website").eq("id", pao_id).single();
+    : await svc.from("paos").select("id,name,abbr,jurisdiction,grp,website,profile,profile_checked").eq("id", pao_id).single();
   if (!region && !pao) return json({ error: "Unknown PAO" }, 404);
 
   type Thread = { id: number; messages: { role: string; content: string; cited_item_ids?: string[]; item_ids?: string[]; at: string }[] };
@@ -235,7 +249,7 @@ ${pao!.name} (${pao!.abbr ?? pao!.id}), ${pao!.grp ?? "Member"}, ${pao!.jurisdic
 ${COLLABORATION_GUIDELINES}
 
 ${EVIDENCE_RULES}
-
+${profileBlock(pao!)}
 Collected items about ${pao!.name} (most recent first, numbered for citation; this is ALL the \
 evidence you have - you cannot browse the web):
 ${numbered.length ? numbered.join("\n\n") : windowDays ? "(Nothing was collected for this PAO in the period the question asks about. Say so plainly.)" : "(No items collected yet for this PAO.)"}

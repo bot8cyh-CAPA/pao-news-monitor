@@ -2,6 +2,15 @@
 
 Plain-language log of what changed and why, for anyone who isn't reading the code. One entry per fix or feature, newest first. See the User Guide for how to use each thing; see `_bmad-output/.../addendum.md` for technical detail.
 
+## 2026-10-30 — Background profiles for PAOs, and CAPA's own background in Ask AI
+- Each PAO can now have a short **background profile**: who they are, their leaders, what they are doing now, how they connect to CAPA, what is not known, and the public sources behind each line, with a "last checked" date.
+- **Ask AI** gives the profile to the AI as "Background on file", kept separate from the numbered news items. So a question like "profile CA Sri Lanka" can use it. The AI is told to label these facts "(background on file)", say how old they are, and say plainly what the profile doesn't cover.
+- Profiles are written for **31 organisations**: 15 member PAOs (CPA Australia, IPA, ICAB, ICMAB, FICA, ICAI, ICMAI, JICPA, MonICPA, ICAN, CA ANZ, ICMA Pakistan, PICPA, CPA PNG, CA Sri Lanka), IFAC, the IASB, ISSB, IESBA, IPSASB and IAASB, and AFA and SAFA. Drafted from public pages on 30 Oct 2026 (mostly by GPT), then spot-checked. CAPA staff then corrected leaders for PICPA and CPA PNG and confirmed the CAPA board. Eight more members (HKICPA, CA Maldives, CICPA, KICPA, AAT Sri Lanka, CMA Sri Lanka, AICPA, VACPA) have short staff-provided cards; only ICAP and SIA have none.
+- Ask AI also gets a short **CAPA background**: history, members, board, committees, strategy, events and partners (as of 30 Oct 2026, from CAPA's website). The tagging prompts are unchanged.
+- Public facts only - nothing confidential goes in a profile. Whole-region questions don't use profiles yet.
+- Profiles can't be edited on the Members screen yet; for now they are set with SQL.
+- Needs: (1) run `supabase/update-17.sql` once in the SQL Editor, (2) redeploy Ask AI from PowerShell - same command as before.
+
 ## 2026-10-28 — Admin > People: Delete button
 - Admins can delete a row on **Admin > People** (for example a typo or a test email), not only set it to **No access**.
 - Never signed up: the row disappears completely. Already signed up: their login still exists, so they stay listed as *Access removed* (still no access) until the login is deleted in Supabase > Authentication > Users. The web page can't delete logins, because that needs the secret key.
