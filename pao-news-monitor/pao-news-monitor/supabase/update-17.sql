@@ -113,7 +113,7 @@ update paos set profile_checked = date '2026-10-30', profile = $card$
 WHO: The Institute of Chartered Accountants of Nepal (ICAN), established under the Nepal Chartered Accountants Act 1997, is the statutory regulator and membership body for chartered accountants and registered auditors. It reported 9,623 members (FY ended 2024/25) and is headquartered in Lalitpur.
 LEADERSHIP (as of 30 Sep 2026): Ananda Raj Sharma Wagle is President, Hem Kumar Kafle Vice-President and Bimal Dangol Executive Director. Their current pages do not state precise commencement dates.
 RECENT: September 2026: ICAN and ICAI extended their mutual-recognition agreement to 20 October 2030. July 2026: a new-student orientation reached about 1,226 participants through physical and digital channels. January 2026: ICAN joined Chartered Accountants Worldwide.
-CAPA LINK: Member of CAPA, IFAC and SAFA; former President Yuddha Raj Oli is a CAPA director.
+CAPA LINK: Member of CAPA, IFAC and SAFA; no current CAPA board seat (CAPA staff, 30 Oct 2026; an earlier draft wrongly listed former President Yuddha Raj Oli as a director).
 NOT KNOWN: Exact start dates for the current officers were not confirmed.
 SOURCES: https://en.ican.org.np/site/show/the-council ; https://en.ican.org.np/site/show/management-team ; https://en.ican.org.np/site/view/ICAISign ; https://en.ican.org.np/site/view/Orientation ; https://en.ican.org.np/_browsable/file/resouces/81_82.pdf ; https://www.capa-apac.org/about-us/board-members/
 $card$ where id = 'ican';
