@@ -12,7 +12,7 @@ ASK = (ROOT / "supabase" / "functions" / "ask-ai" / "index.ts").read_text()
 
 def test_every_profiled_pao_exists():
     ids = set(re.findall(r"where id = '([^']+)'", SQL))
-    assert len(ids) == 23 and {"cpa-australia", "ca-sri-lanka", "fica", "iaasb", "safa"} <= ids
+    assert len(ids) == 31 and {"cpa-australia", "ca-sri-lanka", "fica", "iaasb", "safa"} <= ids
     assert ids <= {p.id for p in load_paos()}
 
 
@@ -23,10 +23,10 @@ def test_sql_is_safe_to_run_twice():
 
 def test_every_card_has_sources_and_a_checked_date():
     cards = re.findall(r"\$card\$(.*?)\$card\$", SQL, flags=re.S)
-    assert len(cards) == 23
+    assert len(cards) == 31
     for c in cards:
         assert "SOURCES:" in c and "NOT KNOWN:" in c
-    assert SQL.count("profile_checked = date '2026-10-30'") == 23
+    assert SQL.count("profile_checked = date '2026-10-30'") == 31
 
 
 def test_staff_provided_fact_is_labelled_as_such():

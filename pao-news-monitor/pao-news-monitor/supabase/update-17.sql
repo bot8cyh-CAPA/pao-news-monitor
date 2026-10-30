@@ -113,7 +113,7 @@ update paos set profile_checked = date '2026-10-30', profile = $card$
 WHO: The Institute of Chartered Accountants of Nepal (ICAN), established under the Nepal Chartered Accountants Act 1997, is the statutory regulator and membership body for chartered accountants and registered auditors. It reported 9,623 members (FY ended 2024/25) and is headquartered in Lalitpur.
 LEADERSHIP (as of 30 Sep 2026): Ananda Raj Sharma Wagle is President, Hem Kumar Kafle Vice-President and Bimal Dangol Executive Director. Their current pages do not state precise commencement dates.
 RECENT: September 2026: ICAN and ICAI extended their mutual-recognition agreement to 20 October 2030. July 2026: a new-student orientation reached about 1,226 participants through physical and digital channels. January 2026: ICAN joined Chartered Accountants Worldwide.
-CAPA LINK: Member of CAPA, IFAC and SAFA; no current CAPA board seat (CAPA staff, 30 Oct 2026; an earlier draft wrongly listed former President Yuddha Raj Oli as a director).
+CAPA LINK: Member of CAPA (since 1998), IFAC and SAFA; former President Yuddha Raj Oli is a CAPA director for 2025-2027 (confirmed by CAPA staff, 30 Oct 2026).
 NOT KNOWN: Exact start dates for the current officers were not confirmed.
 SOURCES: https://en.ican.org.np/site/show/the-council ; https://en.ican.org.np/site/show/management-team ; https://en.ican.org.np/site/view/ICAISign ; https://en.ican.org.np/site/view/Orientation ; https://en.ican.org.np/_browsable/file/resouces/81_82.pdf ; https://www.capa-apac.org/about-us/board-members/
 $card$ where id = 'ican';
@@ -138,19 +138,19 @@ $card$ where id = 'icmap';
 
 update paos set profile_checked = date '2026-10-30', profile = $card$
 WHO: The Philippine Institute of Certified Public Accountants (PICPA), founded in 1929 and accredited by the Professional Regulation Commission on 2 October 1973, is the integrated professional membership organisation for Philippine CPAs, not the statutory regulator. It is headquartered in Mandaluyong City; a current membership total was not confirmed.
-LEADERSHIP (as of the current official site, accessed 30 Oct 2026): the site still lists Gerard Sanvictores as National President for FY2025–2026, a term that has ended; Geraldine Apostol became Executive Director on 1 July 2025. Current FY2026–2027 national officers were not confirmed on PICPA’s public pages.
+LEADERSHIP: Dionisio M. Villeta is the new National President (per CAPA staff, 30 Oct 2026; PICPA's website still lists Gerard Sanvictores, President FY2025–2026). Geraldine Apostol became Executive Director on 1 July 2025.
 RECENT: October 2026: PICPA held its second National Tax Convention and opened registration for the November 2026 Annual National Convention on ethical leadership. May 2026: it completed its first voluntary sustainability report, covering July 2025–15 May 2026.
 CAPA LINK: Member of CAPA, IFAC and AFA; Gerard Sanvictores is CAPA Deputy President for 2025–2027.
-NOT KNOWN: Current President, Vice-Presidents, member total and whether Geraldine Apostol remained Executive Director on 30 October were not fully confirmed.
+NOT KNOWN: Villeta's start date, current Vice-Presidents, member total and whether Geraldine Apostol remained Executive Director on 30 October.
 SOURCES: https://picpa.com.ph/about-picpa-2/ ; https://picpa.com.ph/annual-report/ ; https://picpa.com.ph/category/events/ ; https://picpa.com.ph/ ; https://www.capa-apac.org/about-us/board-members/
 $card$ where id = 'picpa';
 
 update paos set profile_checked = date '2026-10-30', profile = $card$
 WHO: Certified Practising Accountants Papua New Guinea (CPA PNG) traces its origin to the Papua New Guinea Association of Accountants incorporated in 1974 and has statutory professional functions under the Accountants Act 1996. It is both a mandatory membership body for practising CPAs and part of the regulatory framework, headquartered in Port Moresby; current membership size was not confirmed.
-LEADERSHIP (as of 30 Oct 2026): Current President, Vice-President and chief executive or secretary-general were not found on the public pages reviewed.
+LEADERSHIP (per CAPA staff, 30 Oct 2026): President James Popo Gore; Vice-President Pochon Lili; Yuwak is the Executive Director or CEO (exact title not confirmed).
 RECENT: April 2026: CPA PNG’s Kokopo Conference included AI, IT-audit and future-finance-workforce sessions. October 2026: its current conference page promoted Mount Hagen as the next continuing-professional-education conference.
-CAPA LINK: Member of CAPA and IFAC; former President Richard Kuna is a CAPA director for 2025–2027.
-NOT KNOWN: Current membership/student totals and all current leadership details were not confirmed.
+CAPA LINK: Member of CAPA (joined 1983, per its About page) and IFAC; former President Richard Kuna is a CAPA director for 2025–2027. Has an MOU with CPA Australia on reciprocal accreditation, and an MOU with IPA (August 2026).
+NOT KNOWN: Current membership/student totals, the officers' start dates, and Yuwak's full name and title.
 SOURCES: https://cpapng.org.pg/about-us ; https://cpapng.org.pg/cpa-program/continuing-professional-development/conference ; https://www.ifac.org/about-ifac/membership/profile/papua-new-guinea ; https://www.capa-apac.org/about-us/board-members/
 $card$ where id = 'cpapng';
 
@@ -225,5 +225,79 @@ CAPA LINK: IFAC Network Partner; SAFA is not listed as a CAPA member.
 NOT KNOWN: Headquarters, current chief executive/secretary-general and exact date of the website/LMS launch were not confirmed.
 SOURCES: https://www.esafa.org/ ; https://www.esafa.org/Documents/SAFA_Press_Release_2026.pdf ; https://www.icab.org.bd/page/safa-int-conf-2026 ; https://www.thedailystar.net/business/organisation-news/news/humayun-kabir-becomes-president-safa-4070881
 $card$ where id = 'safa';
+
+-- ---- Members with only staff-provided facts so far (30 Oct 2026) ----
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: Hong Kong Institute of Certified Public Accountants (HKICPA), Hong Kong's accountancy body. Rejoined CAPA's membership by 2026 (CAPA members page).
+LEADERSHIP: Chief Executive and Registrar: Arthur Lee Kin (per CAPA staff, 30 Oct 2026).
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA.
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'hkicpa';
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: Chartered Accountants Maldives (CA Maldives). CAPA approved its Member application in September 2026.
+LEADERSHIP: Ilyas Haneef leads it; whether as CEO or President is not confirmed (per CAPA staff, 30 Oct 2026).
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA (approved September 2026).
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'ca-maldives';
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: Chinese Institute of Certified Public Accountants (CICPA), China's national professional accountancy organisation.
+LEADERSHIP: Not recorded.
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA. Its CAPA board seat is being refilled: Wan Wenxiang has left the board and CICPA is putting forward a new director (per CAPA staff, 30 Oct 2026).
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'cicpa';
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: Korean Institute of Certified Public Accountants (KICPA), Korea's national professional accountancy organisation.
+LEADERSHIP: Not recorded.
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA. CAPA President Jhun Yong-Sok (since 3 December 2025) and CAPA director Kim Dong-Chul both come from KICPA (per CAPA staff, 30 Oct 2026). In September 2026 KICPA trained MonICPA members on AI and sustainability reporting.
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'kicpa';
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: Association of Accounting Technicians of Sri Lanka (AAT Sri Lanka).
+LEADERSHIP: President: Dr Chamara Bandara (per CAPA staff, 30 Oct 2026).
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA.
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'aatsl';
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: Institute of Certified Management Accountants of Sri Lanka (CMA Sri Lanka).
+LEADERSHIP: President: Prof Lakshman Watawala (per CAPA staff, 30 Oct 2026).
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA.
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'cmasl';
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: American Institute of CPAs (AICPA), part of AICPA & CIMA (Association of International Certified Professional Accountants).
+LEADERSHIP: Not recorded.
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA. James (Jim) Knafo of AICPA & CIMA is a CAPA director for 2025-2027 (per CAPA staff, 30 Oct 2026).
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'aicpa';
+
+update paos set profile_checked = date '2026-10-30', profile = $card$
+WHO: Vietnam Association of Certified Public Accountants (VACPA).
+LEADERSHIP: Not recorded.
+RECENT: not researched yet.
+CAPA LINK: Member of CAPA. Dr Tran Khanh Lam of VACPA chairs CAPA's Governance and Audit Committee for 2024-2027 (not a board member).
+NOT KNOWN: Everything else - this organisation has not been researched from public sources yet.
+SOURCES: CAPA staff, 30 Oct 2026 ; https://www.capa-apac.org/about-us/members/
+$card$ where id = 'vacpa';
 
 notify pgrst, 'reload schema';

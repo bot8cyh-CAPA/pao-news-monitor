@@ -76,9 +76,10 @@ Executive Office from 1 March 2026). IFAC recognises CAPA as its Asia-Pacific re
 (approved as a Member in September 2026) and HKICPA.
 - Governance: President Jhun Yong-Sok (KICPA) and Deputy President Gerard B. Sanvictores (PICPA), both since 3 December \
 2025. Chief Executive Jennifer Lopez (since 15 September 2025). Directors 2025-2027: Priya Terumalay (CPA Australia), \
-Md Shahadat Hossain (ICAB), Hisashi Sato (JICPA), Kim Dong-Chul (KICPA), Aniket Sunil Talati (ICAI), Peter Vial \
-(CA ANZ), Richard Kuna (CPA PNG), Tishan Subasinghe (CA Sri Lanka), James (Jim) Knafo (AICPA/CIMA). Board list \
-confirmed by CAPA staff on 30 October 2026.
+Md Shahadat Hossain (ICAB), Hisashi Sato (JICPA), Kim Dong-Chul (KICPA), Aniket Sunil Talati (ICAI), Yuddha Raj Oli \
+(ICAN), Peter Vial (CA ANZ), Richard Kuna (CPA PNG), Tishan Subasinghe (CA Sri Lanka), James (Jim) Knafo (AICPA/CIMA). Board list \
+confirmed by CAPA staff on 30 October 2026. CICPA's seat is being refilled \
+(Wan Wenxiang has left; CICPA is putting forward a new director).
 - Committees and groups 2024-2027 (chair): Governance and Audit Committee (Dr Tran Khanh Lam, VACPA; chairs the committee but is not a board member); Member Development \
 Committee (Andrew Conway, IPA); Accounting, Reporting and Assurance Coordinating Committee (Chiew Chun Wee); Public \
 Sector Advisory Group (Md. Abdur Rahman Khan).
