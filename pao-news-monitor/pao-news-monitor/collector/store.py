@@ -85,6 +85,11 @@ class SupabaseStore:
         return self._req("GET", "/briefs?select=*&status=eq.approved&send_requested_at=not.is.null&sent_at=is.null"
                                 "&order=send_requested_at").json()
 
+    def latest_brief_end(self):
+        """End of the most recent brief (draft or approved), or None if there is none yet."""
+        rows = self._req("GET", "/briefs?select=period_end&order=period_end.desc&limit=1").json()
+        return rows[0]["period_end"] if rows else None
+
     def mailing_list(self):
         return self._req("GET", "/mailing_list?select=email,name,active&active=is.true").json()
 
@@ -218,6 +223,10 @@ class JsonStore:
     def briefs_to_send(self):
         return [b for b in self.data.get("briefs", [])
                 if b.get("status") == "approved" and b.get("send_requested_at") and not b.get("sent_at")]
+
+    def latest_brief_end(self):
+        ends = [b.get("period_end") for b in self.data.get("briefs", []) if b.get("period_end")]
+        return max(ends) if ends else None
 
     def mailing_list(self):
         return [m for m in self.data.get("mailing_list", []) if m.get("active", True)]

@@ -337,9 +337,24 @@ def build(store, days=7, chain=None, now=None):
     return row
 
 
+GRACE = timedelta(hours=12)   # scheduled runs can start a little late; don't let that push a brief back a whole day
+
+
+def brief_due(last_end, every_days, now=None):
+    """True when a new brief is due: none exists yet, or `every_days` have passed since the last one ends."""
+    if not every_days or not last_end:
+        return True
+    last = datetime.fromisoformat(str(last_end).replace("Z", "+00:00"))
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    return ((now or datetime.now(timezone.utc)) - last) >= timedelta(days=every_days) - GRACE
+
+
 def cli(argv=None):
-    ap = argparse.ArgumentParser(description="Weekly intelligence brief")
-    ap.add_argument("--days", type=int, default=7)
+    ap = argparse.ArgumentParser(description="Intelligence brief")
+    ap.add_argument("--days", type=int, default=7, help="how many days the brief covers")
+    ap.add_argument("--every", type=int, default=0,
+                    help="only write a brief when this many days have passed since the last one (0 = always)")
     ap.add_argument("--dry-run", action="store_true", help="print instead of saving")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args(argv)
@@ -348,6 +363,12 @@ def cli(argv=None):
     if store.schema_problems() or not getattr(store, "has_briefs", lambda: True)():
         print("::error::Database needs updating: paste supabase/update-4.sql into Supabase > SQL Editor and Run.")
         sys.exit(1)
+    if a.every:
+        last_end = store.latest_brief_end()
+        if not brief_due(last_end, a.every):
+            print(f"::notice title=Brief schedule::Not due yet. The last brief ended {last_end}; "
+                  f"the next one is due {a.every} days after that.")
+            return
     row = build(store, days=a.days)
     if a.dry_run:
         print(row["content"])
